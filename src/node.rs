@@ -12,7 +12,7 @@ pub struct Node {
     pub headline: Headline,
     pub properties: HashMap<String, String>,
     pub section: Section,
-    pub scheduled_at: Option<Timestamp>,
+    pub scheduled_for: Option<Timestamp>,
     pub deadline: Option<Timestamp>,
     pub closed_at: Option<Timestamp>
 }
@@ -38,19 +38,19 @@ impl Node {
             self.add_line(line);
         } else {
             self.deadline = planning.deadline;
-            self.scheduled_at = planning.scheduled;
+            self.scheduled_for = planning.scheduled;
             self.closed_at = planning.closed;
         }
     }
 
     fn has_planning(&self) -> bool {
-        self.deadline.is_some() || self.scheduled_at.is_some() || self.closed_at.is_some()
+        self.deadline.is_some() || self.scheduled_for.is_some() || self.closed_at.is_some()
     }
 
     fn planning(&self) -> Option<Planning> {
         if self.has_planning() {
             Some(Planning {
-                scheduled: self.scheduled_at.clone(),
+                scheduled: self.scheduled_for.clone(),
                 deadline: self.deadline.clone(),
                 closed: self.closed_at.clone()
             })

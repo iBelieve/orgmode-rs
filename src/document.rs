@@ -1,16 +1,19 @@
 use section::Section;
-use chrono::prelude::*;
 use petgraph::EdgeDirection;
-use petgraph::stable_graph::{NodeIndex, NodeIndices, StableGraph};
+use petgraph::stable_graph::{NodeIndex, StableGraph};
 use std::collections::HashMap;
 use std::fmt;
 use node::Node;
 use headline::Headline;
 use itertools::Itertools;
+use parser::{Parser, Error};
+use std::path::{Path, PathBuf};
+use std::fs::File;
 
 pub type NodeId = usize;
 
 pub struct Document {
+    pub path: Option<PathBuf>,
     pub title: String,
     pub section: Section,
     pub properties: HashMap<String, String>,
@@ -19,14 +22,66 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn new() -> Self {
+    pub fn new(path: Option<PathBuf>) -> Self {
         Document {
+            path,
             title: String::new(),
             section: Section::new(),
             properties: HashMap::new(),
             graph: StableGraph::new(),
             sequential_ids: vec![],
         }
+    }
+
+    pub fn open_file(path: &Path) -> Result<Self, Error> {
+        let file = File::open(path)
+            .map_err(Error::IoError)?;
+        Document::parse(Some(path.into()), Parser::from_file(file))
+    }
+
+    pub fn from_string(source: &str) -> Result<Self, Error> {
+        Document::parse(None, Parser::from_string(source))
+    }
+
+    fn parse(path: Option<PathBuf>, mut parser: Parser) -> Result<Self, Error> {
+        use planning::Planning;
+        use element::Element;
+        use headline::Headline;
+        use drawer::Drawer;
+
+        let todo_keywords = vec!["TODO".to_string(), "DONE".to_string()];
+
+        let mut document = Document::new(path);
+        let mut current_id = document.root_id();
+
+        while let Some(line) = parser.next()? {
+            if let Some(headline) = Headline::parse(&line, &todo_keywords) {
+                current_id = Some(document.add_new_node(current_id, headline));
+            } else if let Some(drawer) = Drawer::parse(&line, &mut parser)? {
+                if let Some(properties) = drawer.as_properties() {
+                    if let Some(current_id) = current_id {
+                        document.node_mut(current_id).properties = properties;
+                    } else {
+                        document.properties.extend(properties);
+                    }
+                } else {
+                    document.section_mut(current_id).add_drawer(drawer);
+                }
+            } else if let Some(planning) = Planning::parse(&line)? {
+                if let Some(current_id) = current_id {
+                    document.node_mut(current_id).set_planning(planning, line);
+                } else {
+                    println!("WARNING: planning info found above first headline");
+                    document.section_mut(current_id).add_line(line);
+                }
+            } else if let Some(element) = Element::parse_greater(&line, &mut parser)? {
+                document.section_mut(current_id).elements.push(element);
+            } else {
+                document.section_mut(current_id).add_line(line);
+            }
+        }
+
+        Ok(document)
     }
 
     pub fn root_id(&self) -> Option<NodeId> {

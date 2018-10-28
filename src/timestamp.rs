@@ -1,22 +1,25 @@
-use chrono::prelude::*;
-use regex::Regex;
+use chrono;
+// use regex::Regex;
 use parser::Error;
 use std::fmt;
+
+pub type Date = chrono::Date<chrono::Local>;
+pub type Time = chrono::NaiveTime;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Timestamp {
     string: String,
-    date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
-    time: Option<NaiveTime>,
-    end_time: Option<NaiveTime>,
+    date: Option<Date>,
+    end_date: Option<Date>,
+    time: Option<Time>,
+    end_time: Option<Time>,
     is_active: bool,
     // repeater,
     // warning_delay,
 }
 
 impl Timestamp {
-    pub fn parse(timestamp: &str) -> Result<Self, Error> {
+    pub fn parse(_timestamp: &str) -> Result<Self, Error> {
         // TODO: Implement me!
         Ok(Timestamp {
             string: String::new(),
@@ -35,4 +38,8 @@ impl fmt::Display for Timestamp {
         write!(f, "{}", if self.is_active { ">" } else { "]" })?;
         Ok(())
     }
+}
+
+pub fn today() -> Date {
+    chrono::Local::today()
 }

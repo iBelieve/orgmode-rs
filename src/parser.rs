@@ -1,8 +1,3 @@
-use document::Document;
-use headline::Headline;
-use drawer::Drawer;
-use planning::Planning;
-use element::Element;
 use std::io::{self, BufReader, BufRead};
 use std::fs::File;
 use std::iter::Peekable;
@@ -92,42 +87,4 @@ impl<'a> Parser<'a> {
 
         Err(self.error(format!("Expected `{}` before end of file", end_line)))
     }
-}
-
-pub fn parse(file: &str) -> Result<Document, Error> {
-    let mut todo_keywords = vec!["TODO".to_string(), "DONE".to_string()];
-
-    let mut document = Document::new();
-    let mut current_id = document.root_id();
-
-    let mut parser = Parser::from_string(file);
-
-    while let Some(line) = parser.next()? {
-        if let Some(headline) = Headline::parse(&line, &todo_keywords) {
-            current_id = Some(document.add_new_node(current_id, headline));
-        } else if let Some(drawer) = Drawer::parse(&line, &mut parser)? {
-            if let Some(properties) = drawer.as_properties() {
-                if let Some(current_id) = current_id {
-                    document.node_mut(current_id).properties = properties;
-                } else {
-                    document.properties.extend(properties);
-                }
-            } else {
-                document.section_mut(current_id).add_drawer(drawer);
-            }
-        } else if let Some(planning) = Planning::parse(&line)? {
-            if let Some(current_id) = current_id {
-                document.node_mut(current_id).set_planning(planning, line);
-            } else {
-                println!("WARNING: planning info found above first headline");
-                document.section_mut(current_id).add_line(line);
-            }
-        } else if let Some(element) = Element::parse_greater(&line, &mut parser)? {
-            document.section_mut(current_id).elements.push(element);
-        } else {
-            document.section_mut(current_id).add_line(line);
-        }
-    }
-
-    Ok(document)
 }
