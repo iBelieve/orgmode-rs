@@ -19,7 +19,7 @@ impl Headline {
             let (indent, text) = line.split_at(line.find(' ').unwrap());
             let indent = indent.len() as u16;
             let text = text.trim();
-            
+
             let keyword = keywords.iter()
                 .find(|keyword| text.starts_with(&((*keyword).clone() + " ")))
                 .map(|keyword| keyword.to_string());
