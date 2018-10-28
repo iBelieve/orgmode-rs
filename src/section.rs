@@ -1,5 +1,7 @@
 use drawer::Drawer;
 use element::Element;
+use std::fmt;
+use itertools::Itertools;
 
 #[derive(Default)]
 pub struct Section {
@@ -28,5 +30,11 @@ impl Section {
         }
 
         self.elements.push(Element::new_paragraph(line));
+    }
+}
+
+impl fmt::Display for Section {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.elements.iter().join("\n"))
     }
 }

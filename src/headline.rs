@@ -1,4 +1,7 @@
 use regex::Regex;
+use std::fmt;
+
+const TOTAL_WIDTH: usize = 80;
 
 /// A headline is defined as `STARS KEYWORD PRIORITY TITLE TAGS`
 ///
@@ -16,7 +19,12 @@ pub struct Headline {
 impl Headline {
     pub(super)fn parse(line: &str, keywords: &[String]) -> Option<Self> {
         if is_headline(line) {
-            let (indent, text) = line.split_at(line.find(' ').unwrap());
+            let (indent, text) = if let Some(index) = line.find(' ') {
+                line.split_at(index)
+            } else {
+                (line, "")
+            };
+            assert_eq!(indent, "*".repeat(indent.len()));
             let indent = indent.len() as u16;
             let text = text.trim();
 
@@ -70,9 +78,45 @@ impl Headline {
     }
 }
 
+impl fmt::Display for Headline {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut width = self.indent as usize;
+        write!(f, "{}", "*".repeat(self.indent as usize))?;
+
+        if let Some(ref keyword) = self.keyword {
+            width += keyword.len() + 1;
+            write!(f, " {}", keyword)?;
+        }
+
+        if let Some(ref priority) = self.priority {
+            width += priority.len() + 4;
+            write!(f, " [#{}]", priority)?;
+        }
+
+        if self.is_commented {
+            width += 8;
+            write!(f, " COMMENT")?;
+        }
+
+        if !self.title.is_empty() {
+            width += self.title.len() + 1;
+            write!(f, " {}", self.title)?;
+        }
+
+        if !self.tags.is_empty() {
+            let tags = format!(":{}:", self.tags.join(":"));
+            let padding = TOTAL_WIDTH - width - tags.len();
+            write!(f, "{}{}", " ".repeat(padding), tags)?;
+        }
+
+        Ok(())
+    }
+}
+
+
 fn is_headline(line: &str) -> bool {
     lazy_static! {
-        static ref REGEX: Regex = Regex::new("^\\*+\\s").unwrap();
+        static ref REGEX: Regex = Regex::new("^\\*+(\\s|$)").unwrap();
     }
 
     REGEX.is_match(line)
@@ -129,5 +173,20 @@ mod tests {
                        title: "Title".to_string(),
                        tags: vec!["tag".to_string(), "a2%".to_string()]
                    }));
+    }
+
+    #[test]
+    fn test_parse_and_display_headlines() {
+        let keywords = ["TODO".to_string(), "DOING".to_string(), "DONE".to_string()];
+        let headlines = [
+            "***",
+            "* My header",
+            "** DOING [#C] Comment about my header                             :TAG1_%:@TAG2:",
+            "**** TODO [#A] COMMENT Title                                           :tag:a2%:"
+        ];
+
+        for headline in headlines.into_iter() {
+            assert_eq!(&Headline::parse(headline, &keywords).unwrap().to_string(), headline);
+        }
     }
 }

@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use regex::Regex;
 use parser::Error;
+use std::fmt;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Timestamp {
@@ -25,5 +26,13 @@ impl Timestamp {
             end_time: None,
             is_active: false
         })
+    }
+}
+
+impl fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", if self.is_active { "<" } else { "[" })?;
+        write!(f, "{}", if self.is_active { ">" } else { "]" })?;
+        Ok(())
     }
 }

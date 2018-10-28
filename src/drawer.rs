@@ -1,6 +1,7 @@
 use parser::{Parser, Error};
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt;
 
 const DRAWER_END: &str = ":END:";
 const PROPERTIES_DRAWER_NAME: &str = "PROPERTIES";
@@ -13,7 +14,7 @@ pub struct Drawer {
 }
 
 impl Drawer {
-    pub(super) fn parse(line: &str, lines: &mut Parser) -> Result<Option<Drawer>, Error> {
+    pub fn parse(line: &str, lines: &mut Parser) -> Result<Option<Drawer>, Error> {
         let drawer = if let Some(name) = parse_drawername(line) {
             Some(Drawer {
                 name: name.to_string(),
@@ -23,6 +24,20 @@ impl Drawer {
             None
         };
         Ok(drawer)
+    }
+
+    pub fn from_properties(properties: &HashMap<String, String>) -> Self {
+        let name_width = properties.keys().map(|name| name.len()).max().unwrap_or(0);
+
+        Drawer {
+            name: PROPERTIES_DRAWER_NAME.to_string(),
+            contents: properties.iter()
+                .map(|(name, value)| {
+                    let name = format!(":{}:", name);
+                    format!("{:width$}{}", name, value, width = name_width + 3)
+                })
+                .collect()
+        }
     }
 
     /// See <https://orgmode.org/worg/dev/org-syntax.html#Node_Properties>
@@ -51,6 +66,12 @@ impl Drawer {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Display for Drawer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, ":{}:\n{}\n:END:", self.name, self.contents.join("\n"))
     }
 }
 

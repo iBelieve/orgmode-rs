@@ -1,13 +1,13 @@
 use regex::Regex;
 use timestamp::Timestamp;
 use parser::Error;
+use std::fmt;
 
 /// See <https://orgmode.org/worg/dev/org-syntax.html#Clock,_Diary_Sexp_and_Planning>
 #[derive(Debug, PartialEq)]
 pub struct Planning {
-    pub line: String,
-    pub deadline: Option<Timestamp>,
     pub scheduled: Option<Timestamp>,
+    pub deadline: Option<Timestamp>,
     pub closed: Option<Timestamp>
 }
 
@@ -34,7 +34,6 @@ impl Planning {
 
         let planning = if COMBINED_REGEX.is_match(line) {
             let mut planning = Planning {
-                line: line.to_string(),
                 deadline: None,
                 scheduled: None,
                 closed: None
@@ -77,6 +76,22 @@ impl Planning {
     }
 }
 
+impl fmt::Display for Planning {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut line = Vec::new();
+        if let Some(ref scheduled) = self.scheduled {
+            line.push(format!("SCHEDULED: {}", scheduled));
+        }
+        if let Some(ref deadline) = self.deadline {
+            line.push(format!("DEADLINE: {}", deadline));
+        }
+        if let Some(ref closed) = self.closed {
+            line.push(format!("CLOSED: {}", closed));
+        }
+        write!(f, "{}", line.join(" "))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,7 +102,6 @@ mod tests {
 
         // NOTE: this assumes that timestamp parsing is tested elsewhere
         assert_eq!(Planning::parse(line).unwrap(), Some(Planning {
-            line: line.to_string(),
             deadline: Some(Timestamp::parse("<2018-10-31 Wed>").unwrap()),
             scheduled: Some(Timestamp::parse("<2018-09-15 Sat 10:48 AM>").unwrap()),
             closed: Some(Timestamp::parse("[2018-10-27 Sat 20:09]").unwrap()),

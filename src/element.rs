@@ -1,14 +1,16 @@
 use drawer::Drawer;
 use parser::{Parser, Error};
 use regex::Regex;
+use std::fmt;
+use itertools::Itertools;
 
 pub enum Element {
     Drawer(Drawer),
     Paragraph(Paragraph),
     Comment(String),
     FixedWidthBlock(String),
-    HorizontalRule,
-    Table
+    // HorizontalRule,
+    // Table
 }
 
 impl Element {
@@ -28,6 +30,17 @@ impl Element {
     }
 }
 
+impl fmt::Display for Element {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Element::Drawer(drawer) => write!(f, "{}", drawer),
+            Element::Paragraph(paragraph) => write!(f, "{}", paragraph.text),
+            Element::Comment(comment) => write!(f, "{}", prefixed(comment, "#")),
+            Element::FixedWidthBlock(block) => write!(f, "{}", prefixed(block, ":")),
+        }
+    }
+}
+
 pub struct Paragraph {
     text: String
 }
@@ -39,6 +52,10 @@ impl Paragraph {
         }
         self.text += line;
     }
+}
+
+fn prefixed(text: &str, prefix: &str) -> String {
+    text.split('\n').map(|line| format!("{} {}", prefix, line)).join("\n")
 }
 
 fn parse_prefixed<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {

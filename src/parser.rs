@@ -117,7 +117,7 @@ pub fn parse(file: &str) -> Result<Document, Error> {
             }
         } else if let Some(planning) = Planning::parse(&line)? {
             if let Some(current_id) = current_id {
-                document.node_mut(current_id).set_planning(planning);
+                document.node_mut(current_id).set_planning(planning, line);
             } else {
                 println!("WARNING: planning info found above first headline");
                 document.section_mut(current_id).add_line(line);

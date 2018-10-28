@@ -5,6 +5,7 @@ extern crate lazy_static;
 extern crate failure;
 extern crate petgraph;
 extern crate regex;
+extern crate itertools;
 
 mod document;
 mod drawer;

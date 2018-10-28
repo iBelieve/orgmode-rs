@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt;
 use node::Node;
 use headline::Headline;
+use itertools::Itertools;
 
 pub type NodeId = usize;
 
@@ -156,6 +157,12 @@ impl Document {
         } else {
             &mut self.section
         }
+    }
+}
+
+impl fmt::Display for Document {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.all_nodes().join("\n"))
     }
 }
 
