@@ -11,3 +11,4 @@ petgraph = { version = "0.4.13", git = "https://@github.com/iBelieve/petgraph" }
 chrono = "0.4.6"
 failure = "0.1.3"
 itertools = "0.7.8"
+colored = "1.6.1"
