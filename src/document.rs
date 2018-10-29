@@ -60,24 +60,27 @@ impl Document {
             } else if let Some(drawer) = Drawer::parse(&line, &mut parser)? {
                 if let Some(properties) = drawer.as_properties() {
                     if let Some(current_id) = current_id {
-                        document.node_mut(current_id).properties = properties;
+                        // TODO: Must property drawers come immediately after the headline
+                        // and/or planning info?
+                        document.node_mut(current_id).unwrap().properties = properties;
                     } else {
+                        // TODO: Are property drawers valid outside of a headlien?
                         document.properties.extend(properties);
                     }
                 } else {
-                    document.section_mut(current_id).add_drawer(drawer);
+                    document.section_mut(current_id).unwrap().add_drawer(drawer);
                 }
             } else if let Some(planning) = Planning::parse(&line)? {
                 if let Some(current_id) = current_id {
-                    document.node_mut(current_id).set_planning(planning, line);
+                    document.node_mut(current_id).unwrap().set_planning(planning, line);
                 } else {
                     println!("WARNING: planning info found above first headline");
-                    document.section_mut(current_id).add_line(line);
+                    document.section_mut(current_id).unwrap().add_line(line);
                 }
             } else if let Some(element) = Element::parse_greater(&line, &mut parser)? {
-                document.section_mut(current_id).elements.push(element);
+                document.section_mut(current_id).unwrap().elements.push(element);
             } else {
-                document.section_mut(current_id).add_line(line);
+                document.section_mut(current_id).unwrap().add_line(line);
             }
         }
 
@@ -88,12 +91,12 @@ impl Document {
         None
     }
 
-    pub fn node(&self, id: NodeId) -> &Node {
-        self.graph.node_weight(NodeIndex::new(id)).unwrap()
+    pub fn node(&self, id: NodeId) -> Option<&Node> {
+        self.graph.node_weight(NodeIndex::new(id))
     }
 
-    pub fn node_mut(&mut self, id: NodeId) -> &mut Node {
-        self.graph.node_weight_mut(NodeIndex::new(id)).unwrap()
+    pub fn node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.graph.node_weight_mut(NodeIndex::new(id))
     }
 
     pub fn all_ids(&self) -> Vec<NodeId> {
@@ -101,7 +104,7 @@ impl Document {
     }
 
     pub fn all_nodes(&self) -> impl Iterator<Item=&Node> {
-        self.all_ids().into_iter().map(move |id| self.node(id))
+        self.all_ids().into_iter().map(move |id| self.node(id).unwrap())
     }
 
     pub fn child_ids(&self) -> Vec<NodeId> {
@@ -109,7 +112,7 @@ impl Document {
     }
 
     pub fn children(&self) -> impl Iterator<Item=&Node> {
-        self.children_of(self.root_id()).into_iter().map(move |id| self.node(id))
+        self.children_of(self.root_id()).into_iter().map(move |id| self.node(id).unwrap())
     }
 
     pub fn children_of(&self, id: Option<NodeId>) -> Vec<NodeId> {
@@ -160,16 +163,22 @@ impl Document {
     pub fn find_parent(&self, current_id: Option<NodeId>, indent: u16) -> Option<NodeId> {
         let mut parent_id = current_id;
 
-        while parent_id.is_some() && self.node(parent_id.unwrap()).indent >= indent {
+        if parent_id.is_some() && self.node(parent_id.unwrap()).is_none() {
+            println!("WARNING: Node not found: {}", parent_id.unwrap());
+            return None
+        }
+
+        while parent_id.is_some() && self.node(parent_id.unwrap()).unwrap().indent >= indent {
             parent_id = self.parent_of(parent_id.unwrap());
         }
 
         if let Some(parent_id) = parent_id {
-            if indent > self.node(parent_id).indent + 1 {
-                println!("WARNING: Indent is too deep")
+            let expected_indent = self.node(parent_id).unwrap().indent + 1;
+            if indent > expected_indent {
+                println!("WARNING: Indent is too deep: {} > {}", indent, expected_indent);
             }
-        } else if indent > 0 {
-            println!("WARNING: Indent is too deep")
+        } else if indent > 1 {
+            println!("WARNING: Indent is too deep: {} > 0", indent);
         }
 
         parent_id
@@ -198,19 +207,19 @@ impl Document {
         }
     }
 
-    pub fn section(&self, id: Option<NodeId>) -> &Section {
+    pub fn section(&self, id: Option<NodeId>) -> Option<&Section> {
         if let Some(id) = id {
-            &self.node(id).section
+            self.node(id).map(|node| &node.section)
         } else {
-            &self.section
+            Some(&self.section)
         }
     }
 
-    pub fn section_mut(&mut self, id: Option<NodeId>) -> &mut Section {
+    pub fn section_mut(&mut self, id: Option<NodeId>) -> Option<&mut Section> {
         if let Some(id) = id {
-            &mut self.node_mut(id).section
+            self.node_mut(id).map(|node| &mut node.section)
         } else {
-            &mut self.section
+            Some(&mut self.section)
         }
     }
 }
