@@ -1,6 +1,5 @@
 use drawer::Drawer;
 use parser::{Parser, Error};
-use regex::Regex;
 use std::fmt;
 use itertools::Itertools;
 
@@ -8,17 +7,20 @@ pub enum Element {
     Drawer(Drawer),
     Paragraph(Paragraph),
     Comment(String),
-    FixedWidthBlock(String),
+    FixedWidthArea(String),
+    // Block(Block)
     // HorizontalRule,
     // Table
 }
 
 impl Element {
     pub fn parse_greater(line: &str, parser: &mut Parser) -> Result<Option<Element>, Error> {
-        let element = if let Some(comment) = parse_block_prefixed(line, parser, "#")? {
+        let element = if let Some(comment) = parse_area_prefixed(line, parser, "#")? {
             Some(Element::Comment(comment))
-        } else if let Some(block) = parse_block_prefixed(line, parser, ":")? {
-            Some(Element::FixedWidthBlock(block))
+        } else if let Some(area) = parse_area_prefixed(line, parser, ":")? {
+            Some(Element::FixedWidthArea(area))
+        // } else if let Some(block) = Block::parse(line, parser)? {
+        //     Some(Element::Block(block))
         } else {
             None
         };
@@ -36,7 +38,7 @@ impl fmt::Display for Element {
             Element::Drawer(drawer) => write!(f, "{}", drawer),
             Element::Paragraph(paragraph) => write!(f, "{}", paragraph.text),
             Element::Comment(comment) => write!(f, "{}", prefixed(comment, "#")),
-            Element::FixedWidthBlock(block) => write!(f, "{}", prefixed(block, ":")),
+            Element::FixedWidthArea(area) => write!(f, "{}", prefixed(area, ":")),
         }
     }
 }
@@ -59,6 +61,8 @@ fn prefixed(text: &str, prefix: &str) -> String {
 }
 
 fn parse_prefixed<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
+    let line = line.trim();
+
     if line == prefix {
         Some("")
     } else if line.starts_with(&(prefix.to_string() + " ")) {
@@ -68,22 +72,22 @@ fn parse_prefixed<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
     }
 }
 
-fn parse_block_prefixed(line: &str,  parser: &mut Parser, prefix: &str) -> Result<Option<String>, Error> {
-    let block = if let Some(block) = parse_prefixed(line, prefix) {
-        let mut block = block.to_string();
+fn parse_area_prefixed(line: &str,  parser: &mut Parser, prefix: &str) -> Result<Option<String>, Error> {
+    let area = if let Some(area) = parse_prefixed(line, prefix) {
+        let mut area = area.to_string();
 
         while let Some(line) = parser.peek().map(|s| s.to_string()) {
-            if let Some(more_block) = parse_prefixed(&line, prefix) {
+            if let Some(more_area) = parse_prefixed(&line, prefix) {
                 parser.next()?;
-                block += "\n";
-                block += more_block;
+                area += "\n";
+                area += more_area;
             } else {
                 break;
             }
         }
-        Some(block)
+        Some(area)
     } else {
         None
     };
-    Ok(block)
+    Ok(area)
 }

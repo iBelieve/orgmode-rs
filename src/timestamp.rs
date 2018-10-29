@@ -9,13 +9,13 @@ pub type Time = chrono::NaiveTime;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Timestamp {
-    date: Date,
-    end_date: Option<Date>,
-    time: Option<Time>,
-    end_time: Option<Time>,
-    is_active: bool,
-    repeater: Option<Repeater>,
-    delay: Option<Delay>
+    pub date: Date,
+    pub end_date: Option<Date>,
+    pub time: Option<Time>,
+    pub end_time: Option<Time>,
+    pub is_active: bool,
+    pub repeater: Option<Repeater>,
+    pub delay: Option<Delay>
 }
 
 pub struct TimestampPart {
@@ -45,9 +45,9 @@ pub enum RepeaterMark {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Repeater {
-    mark: RepeaterMark,
-    value: u32,
-    unit: TimeUnit
+    pub mark: RepeaterMark,
+    pub value: u32,
+    pub unit: TimeUnit
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -58,9 +58,9 @@ pub enum DelayMark {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Delay {
-    mark: DelayMark,
-    value: u32,
-    unit: TimeUnit
+    pub mark: DelayMark,
+    pub value: u32,
+    pub unit: TimeUnit
 }
 
 /// Valid timestamps:
@@ -72,7 +72,6 @@ pub struct Delay {
 /// <DATE TIME-TIME REPEATER-OR-DELAY>                             (active range)
 /// [DATE TIME REPEATER-OR-DELAY]--[DATE TIME REPEATER-OR-DELAY]   (inactive range)
 /// [DATE TIME-TIME REPEATER-OR-DELAY]                             (inactive range)
-/// 
 impl Timestamp {
     pub fn parse(timestamp: &str) -> Result<Self, Error> {
         let (start, end) = if let Some(index) = timestamp.find("--") {
@@ -103,6 +102,14 @@ impl Timestamp {
             repeater: start.repeater,
             delay: start.delay
         })
+    }
+
+    pub fn contains(&self, date: &Date) -> bool {
+        if let Some(ref end_date) = self.end_date {
+            date >= &self.date && date <= end_date
+        } else {
+            date == &self.date
+        }
     }
 }
 
@@ -146,7 +153,7 @@ fn parse_timestamp(timestamp: &str) -> Result<TimestampPart, Error> {
     }
 
     let captures = DATE_REGEX.captures(timestamp).unwrap();
-    let is_active = captures.name("year").unwrap().as_str() == "<";
+    let is_active = captures.name("type").unwrap().as_str() == "<";
     let year = captures.name("year").unwrap().as_str().parse().unwrap();
     let month = captures.name("month").unwrap().as_str().parse().unwrap();
     let day = captures.name("day").unwrap().as_str().parse().unwrap();

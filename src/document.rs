@@ -3,16 +3,18 @@ use petgraph::EdgeDirection;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use std::collections::HashMap;
 use std::fmt;
-use node::Node;
+use node::{Node, NodeId};
 use headline::Headline;
 use itertools::Itertools;
 use parser::{Parser, Error};
 use std::path::{Path, PathBuf};
 use std::fs::File;
+use timestamp::Date;
 
-pub type NodeId = usize;
+pub type DocumentId = usize;
 
 pub struct Document {
+    pub id: DocumentId,
     pub path: Option<PathBuf>,
     pub title: String,
     pub section: Section,
@@ -24,6 +26,7 @@ pub struct Document {
 impl Document {
     pub fn new(path: Option<PathBuf>) -> Self {
         Document {
+            id: 0,
             path,
             title: String::new(),
             section: Section::new(),
@@ -49,7 +52,7 @@ impl Document {
         use headline::Headline;
         use drawer::Drawer;
 
-        let todo_keywords = vec!["TODO".to_string(), "DONE".to_string()];
+        let todo_keywords = vec!["TODO".to_string(), "IN-PROGRESS".to_string(), "DONE".to_string()];
 
         let mut document = Document::new(path);
         let mut current_id = document.root_id();
@@ -188,6 +191,7 @@ impl Document {
         let indent = headline.indent;
         let parent_id = self.find_parent(current_id, indent);
         let new_id = self.graph.add_node(Node::from_headline(headline)).index();
+        self.node_mut(new_id).unwrap().id = new_id;
         let new_index = self.next_index_after(current_id);
         if let Some(parent_id) = parent_id {
             self.graph.add_edge(NodeIndex::new(parent_id), NodeIndex::new(new_id), ());
@@ -220,6 +224,36 @@ impl Document {
             self.node_mut(id).map(|node| &mut node.section)
         } else {
             Some(&mut self.section)
+        }
+    }
+
+    pub fn nodes_for_date(&self, date: Date) -> impl Iterator<Item=&Node> {
+        self.all_nodes()
+            .filter(move |node| node.contains_active_date(&date))
+    }
+
+    pub fn node_property(&self, node_id: NodeId, name: &str) -> Option<&str> {
+        let mut node_id = Some(node_id);
+
+        while let Some(id) = node_id {
+            if let Some(node) = self.node(id) {
+                if let Some(property) = node.properties.get(name) {
+                    return Some(property);
+                }
+            }
+            node_id = self.parent_of(id);
+        }
+
+        None
+    }
+
+    pub fn node_category(&self, node_id: NodeId) -> Option<&str> {
+        if let Some(category) = self.node_property(node_id, "CATEGORY") {
+            Some(category)
+        } else if let Some(ref path) = self.path {
+            path.file_stem().and_then(|stem| stem.to_str())
+        } else {
+            None
         }
     }
 }

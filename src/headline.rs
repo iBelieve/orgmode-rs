@@ -6,7 +6,7 @@ const TOTAL_WIDTH: usize = 80;
 /// A headline is defined as `STARS KEYWORD PRIORITY TITLE TAGS`
 ///
 /// See <https://orgmode.org/worg/dev/org-syntax.html#Headlines_and_Sections>
-#[derive(Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Headline {
     pub indent: u16,
     pub keyword: Option<String>,

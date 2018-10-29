@@ -2,12 +2,15 @@ use headline::Headline;
 use section::Section;
 use std::collections::HashMap;
 use planning::Planning;
-use timestamp::Timestamp;
+use timestamp::{Date, Timestamp};
 use std::fmt;
 use drawer::Drawer;
 
+pub type NodeId = usize;
+
 #[derive(Default)]
 pub struct Node {
+    pub id: NodeId,
     pub indent: u16,
     pub headline: Headline,
     pub properties: HashMap<String, String>,
@@ -69,6 +72,19 @@ impl Node {
         } else {
             None
         }
+    }
+
+    pub fn contains_active_date(&self, date: &Date) -> bool {
+        fn contains_active_date(timestamp: Option<&Timestamp>, date: &Date) -> bool {
+            timestamp
+                .map(|timestamp| timestamp.is_active && timestamp.contains(date))
+                .unwrap_or(false)
+        }
+
+        // TODO: Also include dates found in the node's section body text
+        contains_active_date(self.scheduled_for.as_ref(), date) ||
+            contains_active_date(self.deadline.as_ref(), date) ||
+            contains_active_date(self.closed_at.as_ref(), date)
     }
 }
 
