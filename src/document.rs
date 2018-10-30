@@ -7,8 +7,9 @@ use itertools::Itertools;
 use parser::{Parser, Error};
 use std::path::{Path, PathBuf};
 use std::fs::File;
-use timestamp::Date;
+use timestamp::{Timestamp, Date};
 use tree::Tree;
+use std::iter::repeat;
 
 pub type DocumentId = usize;
 
@@ -182,9 +183,9 @@ impl Document {
         }
     }
 
-    pub fn nodes_for_date(&self, date: Date) -> impl Iterator<Item=&Node> {
+    pub fn nodes_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=(&'a Timestamp, &'a Node)> {
         self.all_nodes()
-            .filter(move |node| node.contains_active_date(&date))
+            .flat_map(move |node| node.timestamps_for_date(date).zip(repeat(node)))
     }
 
     pub fn nodes_past_scheduled(&self) -> impl Iterator<Item=&Node> {

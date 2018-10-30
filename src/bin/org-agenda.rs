@@ -6,7 +6,7 @@ extern crate chrono;
 
 use std::env;
 use std::path::Path;
-use orgmode::{Library, Agenda, AgendaRange, Timestamp, today};
+use orgmode::{Library, Agenda, AgendaRange, AgendaEntryKind, Timestamp, today};
 use colored::Colorize;
 
 fn main() {
@@ -51,22 +51,16 @@ fn print_agenda(agenda: &Agenda) {
         }
 
         for entry in agenda.entries(&date) {
-            let is_scheduled = entry.scheduled_for.as_ref()
-                .map(|timestamp| timestamp.contains(&date))
-                .unwrap_or(false);
-            let is_deadline = entry.deadline.as_ref()
-                .map(|timestamp| timestamp.contains(&date))
-                .unwrap_or(false);
-
             print!("  {:10}", format!("{}:", entry.category));
 
-            if is_deadline {
-                print_time(entry.deadline.as_ref().unwrap());
-                print!(" Deadline:  ");
-            } else if is_scheduled {
-                print_time(entry.scheduled_for.as_ref().unwrap());
-                print!(" Scheduled: ");
+            print_time(&entry.timestamp);
+
+            match entry.kind {
+                AgendaEntryKind::Deadline =>  print!(" Deadline:  "),
+                AgendaEntryKind::Scheduled => print!(" Scheduled: "),
+                _ => {}
             }
+
             if let Some(ref keyword) = entry.headline.keyword {
                 print!(" {}", keyword.blue());
             }

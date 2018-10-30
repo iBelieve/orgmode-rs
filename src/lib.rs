@@ -21,6 +21,7 @@ mod timestamp;
 mod library;
 mod agenda;
 mod tree;
+mod timestamps;
 
 use std::path::Path;
 
@@ -34,7 +35,7 @@ pub use section::Section;
 pub use planning::Planning;
 pub use parser::{Parser, Error};
 pub use library::Library;
-pub use agenda::{Agenda, AgendaEntry, AgendaRange};
+pub use agenda::{Agenda, AgendaEntry, AgendaRange, AgendaEntryKind};
 
 pub fn open_file(path: &Path) -> Result<Document, Error> {
     Document::open_file(path)

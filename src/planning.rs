@@ -1,5 +1,5 @@
 use regex::Regex;
-use timestamp::Timestamp;
+use timestamp::{Timestamp, TimestampKind};
 use parser::Error;
 use std::fmt;
 
@@ -42,25 +42,31 @@ impl Planning {
             for captures in ONE_REGEX.captures_iter(line) {
                 let keyword = captures.name("keyword").unwrap().as_str();
                 let timestamp = captures.name("timestamp").unwrap().as_str();
-                let timestamp = Timestamp::parse(timestamp)?;
+                let mut timestamp = match Timestamp::parse(timestamp) {
+                    Some(timestamp) => timestamp,
+                    None => continue
+                };
 
                 match keyword {
                     "DEADLINE" => {
                         if planning.deadline.is_some() {
                             println!("WARNING: deadline is already set");
                         }
+                        timestamp.kind = TimestampKind::Deadline;
                         planning.deadline = Some(timestamp);
                     },
                     "SCHEDULED" => {
                         if planning.scheduled.is_some() {
                             println!("WARNING: scheduled is already set");
                         }
+                        timestamp.kind = TimestampKind::Scheduled;
                         planning.scheduled = Some(timestamp);
                     },
                     "CLOSED" => {
                         if planning.closed.is_some() {
                             println!("WARNING: closed is already set");
                         }
+                        timestamp.kind = TimestampKind::Closed;
                         planning.closed = Some(timestamp);
                     },
                     _ => panic!("Unexpected keyword: {}", keyword)

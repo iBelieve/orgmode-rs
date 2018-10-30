@@ -1,21 +1,43 @@
 use chrono;
 use regex::Regex;
-use parser::Error;
 use std::fmt;
+use std::cmp::Ordering;
 
 pub type Date = chrono::NaiveDate;
 pub type Time = chrono::NaiveTime;
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Timestamp {
     pub date: Date,
     pub end_date: Option<Date>,
     pub time: Option<Time>,
     pub end_time: Option<Time>,
-    pub is_active: bool,
+    pub kind: TimestampKind,
     pub repeater: Option<Repeater>,
     pub delay: Option<Delay>
 }
+
+impl Ord for Timestamp {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (&self.date, &self.time, &self.end_date, &self.end_time)
+            .cmp(&(&other.date, &other.time, &other.end_date, &other.end_time))
+    }
+}
+
+impl PartialOrd for Timestamp {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Timestamp {
+    fn eq(&self, other: &Self) -> bool {
+        (&self.date, &self.time, &self.end_date, &self.end_time) ==
+            (&other.date, &other.time, &other.end_date, &other.end_time)
+    }
+}
+
+impl Eq for Timestamp {}
 
 pub struct TimestampPart {
     date: Date,
@@ -26,7 +48,7 @@ pub struct TimestampPart {
     delay: Option<Delay>
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum TimeUnit {
     Hour,
     Day,
@@ -35,31 +57,40 @@ pub enum TimeUnit {
     Year
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum RepeaterMark {
     Cumulate,
     CatchUp,
     Restart
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Repeater {
     pub mark: RepeaterMark,
     pub value: u32,
     pub unit: TimeUnit
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum DelayMark {
     All,
     First
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Delay {
     pub mark: DelayMark,
     pub value: u32,
     pub unit: TimeUnit
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TimestampKind {
+    Scheduled,
+    Deadline,
+    Closed,
+    Active,
+    Inactive
 }
 
 /// Valid timestamps:
@@ -72,10 +103,10 @@ pub struct Delay {
 /// [DATE TIME REPEATER-OR-DELAY]--[DATE TIME REPEATER-OR-DELAY]   (inactive range)
 /// [DATE TIME-TIME REPEATER-OR-DELAY]                             (inactive range)
 impl Timestamp {
-    pub fn parse(timestamp: &str) -> Result<Self, Error> {
+    pub fn parse(timestamp: &str) -> Option<Self> {
         let (start, end) = if let Some(index) = timestamp.find("--") {
             let (start, end) = timestamp.split_at(index);
-            (start, Some(&end[1..]))
+            (start, Some(&end[2..]))
         } else {
             (timestamp, None)
         };
@@ -92,19 +123,21 @@ impl Timestamp {
         } else {
             None
         };
-        Ok(Timestamp {
+        Some(Timestamp {
             date: start.date,
             end_date: end.as_ref().map(|end| end.date),
             time: start.time,
             end_time: end.and_then(|end| end.end_time).or(start.end_time),
-            is_active: start.is_active,
+            kind: if start.is_active { TimestampKind::Active } else { TimestampKind::Inactive },
             repeater: start.repeater,
             delay: start.delay
         })
     }
 
-    pub fn contains(&self, date: &Date) -> bool {
-        if let Some(ref end_date) = self.end_date {
+    pub fn matches(&self, date: &Date) -> bool {
+        if !self.is_active() {
+            false
+        } else if let Some(ref end_date) = self.end_date {
             date >= &self.date && date <= end_date
         } else {
             date == &self.date
@@ -114,17 +147,54 @@ impl Timestamp {
     pub fn is_past(&self) -> bool {
         self.date < today()
     }
+
+    pub fn is_active(&self) -> bool {
+        match self.kind {
+            TimestampKind::Scheduled | TimestampKind::Deadline | TimestampKind::Active => true,
+            TimestampKind::Closed | TimestampKind::Inactive => false
+        }
+    }
+
+    fn symbols(&self) -> (&str, &str) {
+        if self.is_active() {
+            ("<", ">")
+        } else {
+            ("[", "]")
+        }
+    }
 }
 
 impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", if self.is_active { "<" } else { "[" })?;
-        write!(f, "{}", if self.is_active { ">" } else { "]" })?;
+        let (start, end) = self.symbols();
+        write!(f, "{}", start)?;
+        write!(f, "{}", self.date.format("%Y-%m-%d %a"))?;
+
+        if let Some(time) = self.time {
+            write!(f, " {}", time.format("%H:%M"))?;
+
+            if let Some(end_time) = self.end_time {
+                if self.end_date.is_none() {
+                    write!(f, "-{}", end_time.format("%H:%M"))?;
+                }
+            }
+        }
+
+        write!(f, "{}", end)?;
+        if let Some(end_date) = self.end_date {
+            write!(f, "--{}", start)?;
+            write!(f, "{}", end_date.format("%Y-%m-%d %a"))?;
+
+            if let Some(end_time) = self.end_time {
+                write!(f, "-{}", end_time.format("%H:%M"))?;
+            }
+            write!(f, "{}", end)?;
+        }
         Ok(())
     }
 }
 
-fn parse_timestamp(timestamp: &str) -> Result<TimestampPart, Error> {
+fn parse_timestamp(timestamp: &str) -> Option<TimestampPart> {
     lazy_static! {
         static ref DATE_REGEX: Regex = Regex::new(r#"(?x)
             ^
@@ -155,7 +225,13 @@ fn parse_timestamp(timestamp: &str) -> Result<TimestampPart, Error> {
         "#).unwrap();
     }
 
-    let captures = DATE_REGEX.captures(timestamp).unwrap();
+    let captures = match DATE_REGEX.captures(timestamp) {
+        Some(captures) => captures,
+        None => {
+            println!("WARNING: Invalid date: {}", timestamp);
+            return None;
+        }
+    };
     let is_active = captures.name("type").unwrap().as_str() == "<";
     let year = captures.name("year").unwrap().as_str().parse().unwrap();
     let month = captures.name("month").unwrap().as_str().parse().unwrap();
@@ -223,7 +299,7 @@ fn parse_timestamp(timestamp: &str) -> Result<TimestampPart, Error> {
         None
     };
 
-    Ok(TimestampPart {
+    Some(TimestampPart {
         date,
         time,
         end_time,

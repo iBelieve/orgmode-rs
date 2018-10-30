@@ -45,6 +45,12 @@ impl Node {
             self.deadline = planning.deadline;
             self.scheduled_for = planning.scheduled;
             self.closed_at = planning.closed;
+
+            let timestamps = vec![&self.deadline, &self.scheduled_for, &self.closed_at].into_iter()
+                .filter_map(|some| some.clone().clone());
+
+            self.section.timestamps.timestamps.extend(timestamps);
+            self.section.timestamps.timestamps.sort();
         }
     }
 
@@ -76,28 +82,23 @@ impl Node {
         }
     }
 
-    pub fn contains_active_date(&self, date: &Date) -> bool {
-        fn contains_active_date(timestamp: Option<&Timestamp>, date: &Date) -> bool {
-            timestamp
-                .map(|timestamp| timestamp.is_active && timestamp.contains(date))
-                .unwrap_or(false)
-        }
+    pub fn matches_date(&self, date: &Date) -> bool {
+        self.section.matches_date(date)
+    }
 
-        // TODO: Also include dates found in the node's section body text
-        contains_active_date(self.scheduled_for.as_ref(), date) ||
-            contains_active_date(self.deadline.as_ref(), date) ||
-            contains_active_date(self.closed_at.as_ref(), date)
+    pub fn timestamps_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=&'a Timestamp> {
+        self.section.timestamps_for_date(date)
     }
 
     pub fn is_past_scheduled(&self) -> bool {
         self.scheduled_for.as_ref()
-            .map(|timestamp| timestamp.is_active && timestamp.is_past())
+            .map(|timestamp| timestamp.is_past())
             .unwrap_or(false)
     }
 
     pub fn is_past_deadline(&self) -> bool {
         self.deadline.as_ref()
-            .map(|timestamp| timestamp.is_active && timestamp.is_past())
+            .map(|timestamp| timestamp.is_past())
             .unwrap_or(false)
     }
 }

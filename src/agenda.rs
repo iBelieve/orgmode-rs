@@ -2,7 +2,7 @@ use library::Library;
 use document::{Document, DocumentId};
 use node::{Node, NodeId};
 use std::collections::HashMap;
-use timestamp::{Date, Timestamp};
+use timestamp::{Date, Timestamp, TimestampKind};
 use headline::Headline;
 use chrono::{Datelike, Duration};
 
@@ -34,20 +34,20 @@ impl Agenda {
         };
         let dates: Vec<Date> = agenda.dates().collect();
         for document in library.documents() {
-            agenda.past_scheduled = document
-                .nodes_past_scheduled()
-                .map(|node| AgendaEntry::from_node(document, node))
-                .collect();
-            agenda.past_deadline = document
-                .nodes_past_deadline()
-                .map(|node| AgendaEntry::from_node(document, node))
-                .collect();
+            // agenda.past_scheduled = document
+            //     .nodes_past_scheduled()
+            //     .map(|node| AgendaEntry::from_node(document, node, Some(TimestampKind::Scheduled)))
+            //     .collect();
+            // agenda.past_deadline = document
+            //     .nodes_past_deadline()
+            //     .map(|node| AgendaEntry::from_node(document, node, Some(TimestampKind::Deadline)))
+            //     .collect();
 
             for date in &dates {
                 let entries = agenda.entries.entry(*date).or_insert_with(Vec::new);
                 let new_entries: Vec<AgendaEntry> = document
-                    .nodes_for_date(*date)
-                    .map(|node| AgendaEntry::from_node(document, node))
+                    .nodes_for_date(date)
+                    .map(|(timestamp, node)| AgendaEntry::from_node(document, node, timestamp))
                     .collect();
                 entries.extend(new_entries);
             }
@@ -76,21 +76,32 @@ pub struct AgendaEntry {
     pub node_id: NodeId,
     pub headline: Headline,
     pub category: String,
-    pub scheduled_for: Option<Timestamp>,
-    pub deadline: Option<Timestamp>,
-    pub closed_at: Option<Timestamp>
+    pub timestamp: Timestamp,
+    pub kind: AgendaEntryKind
+}
+
+pub enum AgendaEntryKind {
+    Scheduled,
+    Deadline,
+    Normal
 }
 
 impl AgendaEntry {
-    fn from_node(document: &Document, node: &Node) -> Self {
+    fn from_node(document: &Document, node: &Node, timestamp: &Timestamp) -> Self {
+        let category = document.node_category(node.id).unwrap_or("").to_string();
+
         AgendaEntry {
             doc_id: document.id,
             node_id: node.id,
             headline: node.headline.clone(),
-            category: document.node_category(node.id).unwrap_or("").to_string(),
-            scheduled_for: node.scheduled_for.clone(),
-            deadline: node.deadline.clone(),
-            closed_at: node.closed_at.clone()
+            category,
+            timestamp: timestamp.clone(),
+            kind: match timestamp.kind {
+                TimestampKind::Scheduled => AgendaEntryKind::Scheduled,
+                TimestampKind::Deadline => AgendaEntryKind::Deadline,
+                TimestampKind::Active => AgendaEntryKind::Normal,
+                ref kind => panic!("Unexpected timestamp kind: {:?}", kind)
+            }
         }
     }
 }
