@@ -3,11 +3,13 @@ use parser::{Parser, Error};
 use std::fmt;
 use itertools::Itertools;
 
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Element {
     Drawer(Drawer),
     Paragraph(Paragraph),
-    Comment(String),
-    FixedWidthArea(String),
+    Comment { text: String },
+    FixedWidthArea { text: String },
     // Block(Block)
     // HorizontalRule,
     // Table
@@ -15,10 +17,10 @@ pub enum Element {
 
 impl Element {
     pub fn parse_greater(line: &str, parser: &mut Parser) -> Result<Option<Element>, Error> {
-        let element = if let Some(comment) = parse_area_prefixed(line, parser, "#")? {
-            Some(Element::Comment(comment))
-        } else if let Some(area) = parse_area_prefixed(line, parser, ":")? {
-            Some(Element::FixedWidthArea(area))
+        let element = if let Some(text) = parse_area_prefixed(line, parser, "#")? {
+            Some(Element::Comment { text })
+        } else if let Some(text) = parse_area_prefixed(line, parser, ":")? {
+            Some(Element::FixedWidthArea { text })
         // } else if let Some(block) = Block::parse(line, parser)? {
         //     Some(Element::Block(block))
         } else {
@@ -37,12 +39,13 @@ impl fmt::Display for Element {
         match self {
             Element::Drawer(drawer) => write!(f, "{}", drawer),
             Element::Paragraph(paragraph) => write!(f, "{}", paragraph.text),
-            Element::Comment(comment) => write!(f, "{}", prefixed(comment, "#")),
-            Element::FixedWidthArea(area) => write!(f, "{}", prefixed(area, ":")),
+            Element::Comment { text } => write!(f, "{}", prefixed(text, "#")),
+            Element::FixedWidthArea { text } => write!(f, "{}", prefixed(text, ":")),
         }
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Paragraph {
     text: String
 }

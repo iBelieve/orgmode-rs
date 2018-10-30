@@ -3,9 +3,11 @@ extern crate chrono;
 extern crate lazy_static;
 #[macro_use]
 extern crate failure;
-extern crate petgraph;
 extern crate regex;
 extern crate itertools;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 
 mod document;
 mod drawer;
@@ -18,6 +20,7 @@ mod section;
 mod timestamp;
 mod library;
 mod agenda;
+mod tree;
 
 use std::path::Path;
 
@@ -26,7 +29,7 @@ pub use drawer::Drawer;
 pub use element::{Element, Paragraph};
 pub use node::{Node, NodeId};
 pub use document::{Document, DocumentId};
-pub use timestamp::{Timestamp, Date, Time};
+pub use timestamp::{Timestamp, Date, Time, today};
 pub use section::Section;
 pub use planning::Planning;
 pub use parser::{Parser, Error};

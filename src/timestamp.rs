@@ -1,13 +1,12 @@
 use chrono;
-use chrono::prelude::*;
 use regex::Regex;
 use parser::Error;
 use std::fmt;
 
-pub type Date = chrono::Date<chrono::Local>;
+pub type Date = chrono::NaiveDate;
 pub type Time = chrono::NaiveTime;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Timestamp {
     pub date: Date,
     pub end_date: Option<Date>,
@@ -27,7 +26,7 @@ pub struct TimestampPart {
     delay: Option<Delay>
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum TimeUnit {
     Hour,
     Day,
@@ -36,27 +35,27 @@ pub enum TimeUnit {
     Year
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeaterMark {
     Cumulate,
     CatchUp,
     Restart
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Repeater {
     pub mark: RepeaterMark,
     pub value: u32,
     pub unit: TimeUnit
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum DelayMark {
     All,
     First
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Delay {
     pub mark: DelayMark,
     pub value: u32,
@@ -111,6 +110,10 @@ impl Timestamp {
             date == &self.date
         }
     }
+
+    pub fn is_past(&self) -> bool {
+        self.date < today()
+    }
 }
 
 impl fmt::Display for Timestamp {
@@ -158,7 +161,7 @@ fn parse_timestamp(timestamp: &str) -> Result<TimestampPart, Error> {
     let month = captures.name("month").unwrap().as_str().parse().unwrap();
     let day = captures.name("day").unwrap().as_str().parse().unwrap();
 
-    let date = Local.ymd(year, month, day);
+    let date = Date::from_ymd(year, month, day);
 
     let (time, end_time) = if let Some(captures) = TIME_REGEX.captures(timestamp) {
         let start_time = time(captures.name("hour").unwrap().as_str(),
@@ -261,7 +264,7 @@ fn time(hour: &str, minute: &str, am_pm: Option<&str>) -> Time {
 }
 
 pub fn today() -> Date {
-    chrono::Local::today()
+    chrono::Local::today().naive_local()
 }
 
 #[cfg(test)]

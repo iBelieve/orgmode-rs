@@ -8,7 +8,9 @@ use agenda::{Agenda, AgendaRange};
 use std::ops::{Index, IndexMut};
 use std::ffi::OsStr;
 
+#[derive(Serialize)]
 pub struct Library {
+    #[serde(skip)]
     next_id: DocumentId,
     documents: HashMap<DocumentId, Document>
 }

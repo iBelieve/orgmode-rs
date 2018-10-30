@@ -7,7 +7,7 @@ const DRAWER_END: &str = ":END:";
 const PROPERTIES_DRAWER_NAME: &str = "PROPERTIES";
 
 /// See <https://orgmode.org/worg/dev/org-syntax.html#Property_Drawers>
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Drawer {
     pub name: String,
     pub contents: Vec<String>

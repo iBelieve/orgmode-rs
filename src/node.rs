@@ -8,10 +8,12 @@ use drawer::Drawer;
 
 pub type NodeId = usize;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Node {
     pub id: NodeId,
+    #[serde(skip)]
     pub indent: u16,
+    #[serde(flatten)]
     pub headline: Headline,
     pub properties: HashMap<String, String>,
     pub section: Section,

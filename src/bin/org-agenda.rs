@@ -6,9 +6,8 @@ extern crate chrono;
 
 use std::env;
 use std::path::Path;
-use orgmode::{Library, Agenda, AgendaRange};
+use orgmode::{Library, Agenda, AgendaRange, Timestamp, today};
 use colored::Colorize;
-use chrono::prelude::*;
 
 fn main() {
     let mut library = Library::new();
@@ -30,7 +29,6 @@ fn print_agenda(agenda: &Agenda) {
     };
     println!("{}", format!("==================== {} Agenda ====================", title).white().bold());
     let mut first = true;
-    let today = Local::today();
     for date in agenda.dates() {
         let date_format = if first {
             first = false;

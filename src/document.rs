@@ -1,6 +1,4 @@
 use section::Section;
-use petgraph::EdgeDirection;
-use petgraph::stable_graph::{NodeIndex, StableGraph};
 use std::collections::HashMap;
 use std::fmt;
 use node::{Node, NodeId};
@@ -10,17 +8,19 @@ use parser::{Parser, Error};
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use timestamp::Date;
+use tree::Tree;
 
 pub type DocumentId = usize;
 
+#[derive(Serialize, Deserialize)]
 pub struct Document {
     pub id: DocumentId,
     pub path: Option<PathBuf>,
     pub title: String,
     pub section: Section,
     pub properties: HashMap<String, String>,
-    graph: StableGraph<Node, ()>,
-    sequential_ids: Vec<NodeId>,
+    #[serde(flatten)]
+    tree: Tree<Node>
 }
 
 impl Document {
@@ -31,8 +31,7 @@ impl Document {
             title: String::new(),
             section: Section::new(),
             properties: HashMap::new(),
-            graph: StableGraph::new(),
-            sequential_ids: vec![],
+            tree: Tree::new()
         }
     }
 
@@ -55,7 +54,7 @@ impl Document {
         let todo_keywords = vec!["TODO".to_string(), "IN-PROGRESS".to_string(), "DONE".to_string()];
 
         let mut document = Document::new(path);
-        let mut current_id = document.root_id();
+        let mut current_id = None;
 
         while let Some(line) = parser.next()? {
             if let Some(headline) = Headline::parse(&line, &todo_keywords) {
@@ -90,77 +89,49 @@ impl Document {
         Ok(document)
     }
 
-    pub fn root_id(&self) -> Option<NodeId> {
-        None
-    }
-
     pub fn node(&self, id: NodeId) -> Option<&Node> {
-        self.graph.node_weight(NodeIndex::new(id))
+        self.tree.node(id)
     }
 
     pub fn node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
-        self.graph.node_weight_mut(NodeIndex::new(id))
+        self.tree.node_mut(id)
     }
 
-    pub fn all_ids(&self) -> Vec<NodeId> {
-        self.graph.node_indices().map(|index| index.index()).collect()
+    pub fn all_ids(&self) -> impl Iterator<Item=NodeId> + '_ {
+        self.tree.all_ids()
     }
 
     pub fn all_nodes(&self) -> impl Iterator<Item=&Node> {
-        self.all_ids().into_iter().map(move |id| self.node(id).unwrap())
+        self.tree.all_nodes()
     }
 
-    pub fn child_ids(&self) -> Vec<NodeId> {
-        self.children_of(self.root_id())
+    pub fn root_ids(&self) -> impl Iterator<Item=NodeId> + '_ {
+        self.tree.child_ids(self.tree.root_id())
     }
 
-    pub fn children(&self) -> impl Iterator<Item=&Node> {
-        self.children_of(self.root_id()).into_iter().map(move |id| self.node(id).unwrap())
+    pub fn roots(&self) -> impl Iterator<Item=&Node> {
+        self.tree.children(self.tree.root_id())
     }
 
-    pub fn children_of(&self, id: Option<NodeId>) -> Vec<NodeId> {
-        let mut children: Vec<NodeId> = if let Some(id) = id {
-            self.graph
-                .neighbors_directed(NodeIndex::new(id), EdgeDirection::Outgoing)
-                .map(|index| index.index())
-                .collect()
-        } else {
-            self.graph
-                .externals(EdgeDirection::Incoming)
-                .map(|index| index.index())
-                .collect()
-        };
-        children.sort_by_key(|node_id| self.index_of(*node_id));
-        children
+    pub fn child_ids(&self, id: Option<NodeId>) -> impl Iterator<Item=NodeId> + '_ {
+        self.tree.child_ids(id.unwrap_or(self.tree.root_id()))
     }
 
-    fn index_of(&self, id: NodeId) -> usize {
-        if self.sequential_ids.last() == Some(&id) {
-            self.sequential_ids.len() - 1
-        } else {
-            self.sequential_ids.iter()
-                .position(|an_id| *an_id == id)
-                .expect("Unable to find ID in sequence")
-        }
+    pub fn children(&self, id: Option<NodeId>) -> impl Iterator<Item=&Node> {
+        self.tree.children(id.unwrap_or(self.tree.root_id()))
     }
 
-    pub fn id_after(&self, id: NodeId) -> Option<NodeId> {
-        self.sequential_ids.get(self.index_of(id) + 1).cloned()
+    pub fn parent_id(&self, id: NodeId) -> Option<NodeId> {
+        self.tree.parent_id(id)
+            .filter(|id| id != &self.tree.root_id())
     }
 
-    pub fn id_before(&self, id: NodeId) -> Option<NodeId> {
-        self.sequential_ids.get(self.index_of(id) - 1).cloned()
+    pub fn parent(&self, id: NodeId) -> Option<&Node> {
+        self.tree.parent(id)
     }
 
-    pub fn parent_of(&self, id: NodeId) -> Option<NodeId> {
-        let mut parents = self.graph.neighbors_directed(NodeIndex::new(id), EdgeDirection::Incoming);
-
-        if let Some(parent) = parents.next() {
-            assert_eq!(parents.next(), None);
-            Some(parent.index())
-        } else {
-            None
-        }
+    pub fn parent_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.tree.parent_mut(id)
     }
 
     pub fn find_parent(&self, current_id: Option<NodeId>, indent: u16) -> Option<NodeId> {
@@ -172,7 +143,7 @@ impl Document {
         }
 
         while parent_id.is_some() && self.node(parent_id.unwrap()).unwrap().indent >= indent {
-            parent_id = self.parent_of(parent_id.unwrap());
+            parent_id = self.parent_id(parent_id.unwrap());
         }
 
         if let Some(parent_id) = parent_id {
@@ -189,26 +160,10 @@ impl Document {
 
     pub fn add_new_node(&mut self, current_id: Option<NodeId>, headline: Headline) -> NodeId {
         let indent = headline.indent;
-        let parent_id = self.find_parent(current_id, indent);
-        let new_id = self.graph.add_node(Node::from_headline(headline)).index();
-        self.node_mut(new_id).unwrap().id = new_id;
-        let new_index = self.next_index_after(current_id);
-        if let Some(parent_id) = parent_id {
-            self.graph.add_edge(NodeIndex::new(parent_id), NodeIndex::new(new_id), ());
-        }
-        self.sequential_ids.insert(new_index, new_id);
+        let parent_id = self.find_parent(current_id, indent).unwrap_or(self.tree.root_id());
+        let new_id = self.tree.insert_node(parent_id, Node::from_headline(headline));
+        self.tree[new_id].id = new_id;
         new_id
-    }
-
-    pub fn next_index_after(&self, id: Option<NodeId>) -> usize {
-        if self.sequential_ids.last() == id.as_ref() || id == None {
-            self.sequential_ids.len()
-        } else {
-            let id = id.unwrap();
-            let last_id = self.children_of(Some(id)).last().cloned().unwrap_or(id);
-
-            self.index_of(last_id) + 1
-        }
     }
 
     pub fn section(&self, id: Option<NodeId>) -> Option<&Section> {
@@ -241,7 +196,7 @@ impl Document {
                     return Some(property);
                 }
             }
-            node_id = self.parent_of(id);
+            node_id = self.parent_id(id);
         }
 
         None

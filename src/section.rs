@@ -3,7 +3,7 @@ use element::Element;
 use std::fmt;
 use itertools::Itertools;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Section {
     pub elements: Vec<Element>
 }
