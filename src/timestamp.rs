@@ -275,29 +275,29 @@ mod tests {
     fn test_parse_date() {
         let timestamp = Timestamp::parse("<2018-09-15>").unwrap();
 
-        assert_eq!(timestamp.date, Local.ymd(2018, 9, 15));
+        assert_eq!(timestamp.date, Date::from_ymd(2018, 9, 15));
     }
 
     #[test]
     fn test_parse_date_and_day() {
         let timestamp = Timestamp::parse("[2018-09-15 Sat]").unwrap();
 
-        assert_eq!(timestamp.date, Local.ymd(2018, 9, 15));
+        assert_eq!(timestamp.date, Date::from_ymd(2018, 9, 15));
     }
 
     #[test]
     fn test_parse_date_and_time() {
         let timestamp = Timestamp::parse("<2018-09-15 Sat 10:48 AM>").unwrap();
-        assert_eq!(timestamp.date, Local.ymd(2018, 9, 15));
-        assert_eq!(timestamp.time, Some(NaiveTime::from_hms(10, 48, 0)));
+        assert_eq!(timestamp.date, Date::from_ymd(2018, 9, 15));
+        assert_eq!(timestamp.time, Some(Time::from_hms(10, 48, 0)));
 
         let timestamp = Timestamp::parse("<2018-09-15 12:30 PM>").unwrap();
-        assert_eq!(timestamp.time, Some(NaiveTime::from_hms(12, 30, 0)));
+        assert_eq!(timestamp.time, Some(Time::from_hms(12, 30, 0)));
 
         let timestamp = Timestamp::parse("[2018-09-15 dss 12:00 AM]").unwrap();
-        assert_eq!(timestamp.time, Some(NaiveTime::from_hms(0, 0, 0)));
+        assert_eq!(timestamp.time, Some(Time::from_hms(0, 0, 0)));
 
         let timestamp = Timestamp::parse("[2018-09-15 Sat 05:00]").unwrap();
-        assert_eq!(timestamp.time, Some(NaiveTime::from_hms(5, 0, 0)));
+        assert_eq!(timestamp.time, Some(Time::from_hms(5, 0, 0)));
     }
 }
