@@ -187,6 +187,17 @@ impl Document {
             .filter(move |node| node.contains_active_date(&date))
     }
 
+    pub fn nodes_past_scheduled(&self) -> impl Iterator<Item=&Node> {
+        self.all_nodes()
+            .filter(move |node| node.is_past_scheduled())
+    }
+
+    pub fn nodes_past_deadline(&self) -> impl Iterator<Item=&Node> {
+        self.all_nodes()
+            .filter(move |node| node.is_past_deadline())
+    }
+
+    // TODO: Support extending parent properties via NAME+
     pub fn node_property(&self, node_id: NodeId, name: &str) -> Option<&str> {
         let mut node_id = Some(node_id);
 

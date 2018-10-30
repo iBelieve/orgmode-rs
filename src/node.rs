@@ -88,6 +88,18 @@ impl Node {
             contains_active_date(self.deadline.as_ref(), date) ||
             contains_active_date(self.closed_at.as_ref(), date)
     }
+
+    pub fn is_past_scheduled(&self) -> bool {
+        self.scheduled_for.as_ref()
+            .map(|timestamp| timestamp.is_active && timestamp.is_past())
+            .unwrap_or(false)
+    }
+
+    pub fn is_past_deadline(&self) -> bool {
+        self.deadline.as_ref()
+            .map(|timestamp| timestamp.is_active && timestamp.is_past())
+            .unwrap_or(false)
+    }
 }
 
 impl fmt::Display for Node {
