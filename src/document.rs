@@ -183,7 +183,7 @@ impl Document {
         }
     }
 
-    pub fn nodes_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=(&'a Timestamp, &'a Node)> {
+    pub fn nodes_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=(Timestamp, &'a Node)> {
         self.all_nodes()
             .flat_map(move |node| node.timestamps_for_date(date).zip(repeat(node)))
     }

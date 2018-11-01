@@ -2,6 +2,7 @@ use chrono;
 use regex::Regex;
 use std::fmt;
 use std::cmp::Ordering;
+use chrono::Datelike;
 
 pub type Date = chrono::NaiveDate;
 pub type Time = chrono::NaiveTime;
@@ -19,8 +20,14 @@ pub struct Timestamp {
 
 impl Ord for Timestamp {
     fn cmp(&self, other: &Self) -> Ordering {
-        (&self.date, &self.time, &self.end_date, &self.end_time)
-            .cmp(&(&other.date, &other.time, &other.end_date, &other.end_time))
+        if self.date == other.date {
+            let time = self.time.unwrap_or_else(|| Time::from_hms(0, 0, 0));
+            let other_time = other.time.unwrap_or_else(|| Time::from_hms(0, 0, 0));
+
+            time.cmp(&other_time)
+        } else {
+            self.date.cmp(&other.date)
+        }
     }
 }
 
@@ -37,6 +44,16 @@ impl PartialEq for Timestamp {
     }
 }
 
+impl PartialEq<Date> for Timestamp {
+    fn eq(&self, other: &Date) -> bool {
+        if let Some(ref end_date) = self.end_date {
+            other >= &self.date && other <= end_date
+        } else {
+            other == &self.date
+        }
+    }
+}
+
 impl Eq for Timestamp {}
 
 pub struct TimestampPart {
@@ -48,7 +65,7 @@ pub struct TimestampPart {
     delay: Option<Delay>
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TimeUnit {
     Hour,
     Day,
@@ -110,11 +127,12 @@ impl Timestamp {
         } else {
             (timestamp, None)
         };
-        let start = parse_timestamp(start)?;
+        let mut start = parse_timestamp(start)?;
         let end = if let Some(end) = end {
             let end = parse_timestamp(end)?;
-            if end.repeater.is_some() {
-                println!("WARNING: Ending timestamp should not have a repeater");
+            if start.repeater.is_some() || end.repeater.is_some() {
+                println!("WARNING: Multi-day repeating timestamps are not supported");
+                start.repeater = None;
             }
             if end.delay.is_some() {
                 println!("WARNING: Ending timestamp should not have a delay");
@@ -135,12 +153,59 @@ impl Timestamp {
     }
 
     pub fn matches(&self, date: &Date) -> bool {
-        if !self.is_active() {
-            false
-        } else if let Some(ref end_date) = self.end_date {
-            date >= &self.date && date <= end_date
+        self.timestamp_for_date(date).is_some()
+    }
+
+    pub fn timestamp_for_date(&self, date: &Date) -> Option<Timestamp> {
+        if !self.is_active() || date < &self.date {
+            return None;
+        }
+
+        let today = today();
+
+        if date <= &today && (self.kind == TimestampKind::Scheduled || self.kind == TimestampKind::Deadline) {
+            if self == date {
+                Some(self.clone())
+            } else {
+                None
+            }
         } else {
-            date == &self.date
+            let on_today = if let Some(ref repeater) = self.repeater {
+                if self.end_date.is_some() {
+                    self == date
+                } else {
+                    let duration = date.signed_duration_since(self.date).num_days() as u32;
+
+                    match repeater.unit {
+                        TimeUnit::Year => {
+                            self.date.month() == date.month() && self.date.day() == date.day() &&
+                                ((date.year() - self.date.year()) as u32 % repeater.value == 0)
+                        },
+                        TimeUnit::Month => {
+                            self.date.day() == date.day() &&
+                                ((12 * (date.year() - self.date.year()) as u32 +
+                                 (date.month() - self.date.month()) as u32) % repeater.value == 0)
+                        },
+                        TimeUnit::Day => {
+                            duration % repeater.value == 0
+                        },
+                        TimeUnit::Week => {
+                            duration % (7 * repeater.value) == 0
+                        }
+                        TimeUnit::Hour => panic!("Hourly repeaters are not supported"),
+                    }
+                }
+            } else {
+                self == date
+            };
+
+            if on_today {
+                let mut timestamp = self.clone();
+                timestamp.date = date.clone();
+                Some(timestamp)
+            } else {
+                None
+            }
         }
     }
 
@@ -258,7 +323,7 @@ fn parse_timestamp(timestamp: &str) -> Option<TimestampPart> {
 
     let repeater = if let Some(captures) = REPEATER_REGEX.captures(timestamp) {
         let mark = captures.name("mark").unwrap().as_str();
-        let value = captures.name("value").unwrap().as_str().parse().unwrap();
+        let mut value = captures.name("value").unwrap().as_str().parse().unwrap();
         let unit = captures.name("unit").unwrap().as_str();
 
         let mark = match mark {
@@ -267,7 +332,13 @@ fn parse_timestamp(timestamp: &str) -> Option<TimestampPart> {
             ".+" => RepeaterMark::Restart,
             _ => panic!("Unexpected repeater mark: {}", mark)
         };
-        let unit = parse_unit(unit);
+        let mut unit = parse_unit(unit);
+
+        if unit == TimeUnit::Hour {
+            println!("WARNING: Hourly repeaters are not supported");
+            unit = TimeUnit::Day;
+            value = 1;
+        }
 
         Some(Repeater {
             mark,

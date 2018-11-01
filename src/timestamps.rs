@@ -34,8 +34,8 @@ impl Timestamps {
         self.timestamps.iter().find(|timestamp| timestamp.matches(date)).is_some()
     }
 
-    pub fn timestamps_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=&'a Timestamp> {
-        self.timestamps.iter().filter(move |timestamp| timestamp.matches(date))
+    pub fn timestamps_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=Timestamp> + 'a {
+        self.timestamps.iter().filter_map(move |timestamp| timestamp.timestamp_for_date(date))
     }
 }
 

@@ -86,7 +86,7 @@ impl Node {
         self.section.matches_date(date)
     }
 
-    pub fn timestamps_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=&'a Timestamp> {
+    pub fn timestamps_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=Timestamp> + 'a {
         self.section.timestamps_for_date(date)
     }
 
@@ -100,6 +100,14 @@ impl Node {
         self.deadline.as_ref()
             .map(|timestamp| timestamp.is_past())
             .unwrap_or(false)
+    }
+
+    pub fn property(&self, name: &str) -> Option<&str> {
+        self.properties.get(name).map(|prop| prop.as_str())
+    }
+
+    pub fn is_habit(&self) -> bool {
+        self.property("STYLE") == Some("habit")
     }
 }
 

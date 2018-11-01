@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use timestamp::{Date, Timestamp, TimestampKind};
 use headline::Headline;
 use chrono::{Datelike, Duration};
+use std::cmp::Ordering;
 
 pub enum AgendaRange {
     Day,
@@ -47,10 +48,15 @@ impl Agenda {
                 let entries = agenda.entries.entry(*date).or_insert_with(Vec::new);
                 let new_entries: Vec<AgendaEntry> = document
                     .nodes_for_date(date)
+                    .filter(|(_timestamp, node)| !node.is_habit())
                     .map(|(timestamp, node)| AgendaEntry::from_node(document, node, timestamp))
                     .collect();
                 entries.extend(new_entries);
             }
+        }
+        for date in &dates {
+            let entries = agenda.entries.get_mut(date).unwrap();
+            entries.sort();
         }
         agenda
     }
@@ -71,6 +77,7 @@ impl Agenda {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub struct AgendaEntry {
     pub doc_id: DocumentId,
     pub node_id: NodeId,
@@ -80,6 +87,7 @@ pub struct AgendaEntry {
     pub kind: AgendaEntryKind
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum AgendaEntryKind {
     Scheduled,
     Deadline,
@@ -87,21 +95,35 @@ pub enum AgendaEntryKind {
 }
 
 impl AgendaEntry {
-    fn from_node(document: &Document, node: &Node, timestamp: &Timestamp) -> Self {
+    fn from_node(document: &Document, node: &Node, timestamp: Timestamp) -> Self {
         let category = document.node_category(node.id).unwrap_or("").to_string();
+        let kind = match timestamp.kind {
+            TimestampKind::Scheduled => AgendaEntryKind::Scheduled,
+            TimestampKind::Deadline => AgendaEntryKind::Deadline,
+            TimestampKind::Active => AgendaEntryKind::Normal,
+            ref kind => panic!("Unexpected timestamp kind '{:?}' for \"{}\"", kind, node.headline.title)
+        };
 
         AgendaEntry {
             doc_id: document.id,
             node_id: node.id,
             headline: node.headline.clone(),
             category,
-            timestamp: timestamp.clone(),
-            kind: match timestamp.kind {
-                TimestampKind::Scheduled => AgendaEntryKind::Scheduled,
-                TimestampKind::Deadline => AgendaEntryKind::Deadline,
-                TimestampKind::Active => AgendaEntryKind::Normal,
-                ref kind => panic!("Unexpected timestamp kind: {:?}", kind)
-            }
+            timestamp,
+            kind
         }
+    }
+}
+
+impl Ord for AgendaEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (&self.kind, &self.timestamp, &self.category)
+            .cmp(&(&other.kind, &other.timestamp, &other.category))
+    }
+}
+
+impl PartialOrd for AgendaEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
