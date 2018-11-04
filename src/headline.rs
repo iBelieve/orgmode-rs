@@ -1,7 +1,6 @@
 use regex::Regex;
 use std::fmt;
-
-const TOTAL_WIDTH: usize = 80;
+use ::LINE_LENGTH;
 
 /// A headline is defined as `STARS KEYWORD PRIORITY TITLE TAGS`
 ///
@@ -105,7 +104,7 @@ impl fmt::Display for Headline {
 
         if !self.tags.is_empty() {
             let tags = format!(":{}:", self.tags.join(":"));
-            let padding = TOTAL_WIDTH - width - tags.len();
+            let padding = LINE_LENGTH - width - tags.len();
             write!(f, "{}{}", " ".repeat(padding), tags)?;
         }
 

@@ -1,26 +1,18 @@
-use std::io::{self, BufReader, BufRead};
+use std::io::{self, BufReader, BufRead, Error as IoError};
 use std::fs::File;
 use std::iter::Peekable;
 
-#[derive(Debug, Fail)]
-#[fail(display = "Error on line {}: {}", line, description)]
-pub struct ParseError {
-    description: String,
-    line: u32,
-    column: Option<u32>
-}
-
-#[derive(Debug, Fail)]
-pub enum Error {
-    #[fail(display = "Parsing error: {}", _0)]
-    ParseError(#[cause] ParseError),
-    #[fail(display = "I/O error: {}", _0)]
-    IoError(#[cause] io::Error)
+macro_rules! org_warning {
+    ($($arg:tt)*) => {
+        let warning = format!($($arg)*);
+        println!("WARNING: {}", warning);
+    };
 }
 
 pub struct Parser<'a> {
     lines: Peekable<Box<Iterator<Item=Result<String, io::Error>> + 'a>>,
-    current_line: u32
+    current_line: u32,
+    pub io_error: Option<IoError>
 }
 
 impl<'a> Parser<'a> {
@@ -35,18 +27,22 @@ impl<'a> Parser<'a> {
     pub fn new(iter: Box<Iterator<Item=Result<String, io::Error>> + 'a>) -> Self {
         Parser {
             lines: iter.peekable(),
-            current_line: 1
+            current_line: 1,
+            io_error: None
         }
     }
 
-    pub fn next(&mut self) -> Result<Option<String>, Error> {
+    pub fn next(&mut self) -> Option<String> {
         match self.lines.next() {
             Some(Ok(line)) => {
                 self.current_line += 1;
-                Ok(Some(line))
+                Some(line)
             },
-            Some(Err(error)) => Err(Error::IoError(error)),
-            None => Ok(None)
+            Some(Err(error)) => {
+                self.io_error = Some(error);
+                None
+            },
+            None => None
         }
     }
 
@@ -58,33 +54,18 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn error(&self, description: impl Into<String>) -> Error {
-        Error::ParseError(ParseError {
-            description: description.into(),
-            line: self.current_line,
-            column: None
-        })
-    }
-
-    pub fn error_at_column(&self, column: u32, description: impl Into<String>) -> Error {
-        Error::ParseError(ParseError {
-            description: description.into(),
-            line: self.current_line,
-            column: Some(column)
-        })
-    }
-
-    pub fn take_until(&mut self, end_line: &str) -> Result<Vec<String>, Error> {
+    pub fn take_until(&mut self, end_line: &str) -> Vec<String> {
         let mut lines = Vec::new();
 
-        while let Some(line) = self.next()? {
+        while let Some(line) = self.next() {
             if line == end_line {
-                return Ok(lines);
+                return lines;
             } else {
                 lines.push(line);
             }
         }
 
-        Err(self.error(format!("Expected `{}` before end of file", end_line)))
+        org_warning!("Expected `{}` before end of file", end_line);
+        lines
     }
 }

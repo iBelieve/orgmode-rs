@@ -1,4 +1,4 @@
-use parser::{Parser, Error};
+use parser::Parser;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
@@ -14,16 +14,15 @@ pub struct Drawer {
 }
 
 impl Drawer {
-    pub fn parse(line: &str, lines: &mut Parser) -> Result<Option<Drawer>, Error> {
-        let drawer = if let Some(name) = parse_drawername(line) {
+    pub fn parse(line: &str, lines: &mut Parser) -> Option<Drawer> {
+        if let Some(name) = parse_drawername(line) {
             Some(Drawer {
                 name: name.to_string(),
-                contents: lines.take_until(DRAWER_END)?
+                contents: lines.take_until(DRAWER_END)
             })
         } else {
             None
-        };
-        Ok(drawer)
+        }
     }
 
     pub fn from_properties(properties: &HashMap<String, String>) -> Self {

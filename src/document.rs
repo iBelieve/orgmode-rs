@@ -4,9 +4,10 @@ use std::fmt;
 use node::{Node, NodeId};
 use headline::Headline;
 use itertools::Itertools;
-use parser::{Parser, Error};
+use parser::Parser;
 use std::path::{Path, PathBuf};
 use std::fs::File;
+use std::io::Error as IoError;
 use timestamp::{Timestamp, Date};
 use tree::Tree;
 use std::iter::repeat;
@@ -36,17 +37,17 @@ impl Document {
         }
     }
 
-    pub fn open_file(path: &Path) -> Result<Self, Error> {
-        let file = File::open(path)
-            .map_err(Error::IoError)?;
+    pub fn open_file(path: impl AsRef<Path>) -> Result<Self, IoError> {
+        let path = path.as_ref();
+        let file = File::open(path)?;
         Document::parse(Some(path.into()), Parser::from_file(file))
     }
 
-    pub fn from_string(source: &str) -> Result<Self, Error> {
-        Document::parse(None, Parser::from_string(source))
+    pub fn from_string(source: &str) -> Self {
+        Document::parse(None, Parser::from_string(source)).unwrap()
     }
 
-    fn parse(path: Option<PathBuf>, mut parser: Parser) -> Result<Self, Error> {
+    fn parse(path: Option<PathBuf>, mut parser: Parser) -> Result<Self, IoError> {
         use planning::Planning;
         use element::Element;
         use headline::Headline;
@@ -57,10 +58,10 @@ impl Document {
         let mut document = Document::new(path);
         let mut current_id = None;
 
-        while let Some(line) = parser.next()? {
+        while let Some(line) = parser.next() {
             if let Some(headline) = Headline::parse(&line, &todo_keywords) {
                 current_id = Some(document.add_new_node(current_id, headline));
-            } else if let Some(drawer) = Drawer::parse(&line, &mut parser)? {
+            } else if let Some(drawer) = Drawer::parse(&line, &mut parser) {
                 if let Some(properties) = drawer.as_properties() {
                     if let Some(current_id) = current_id {
                         // TODO: Must property drawers come immediately after the headline
@@ -73,21 +74,25 @@ impl Document {
                 } else {
                     document.section_mut(current_id).unwrap().add_drawer(drawer);
                 }
-            } else if let Some(planning) = Planning::parse(&line)? {
+            } else if let Some(planning) = Planning::parse(&line) {
                 if let Some(current_id) = current_id {
-                    document.node_mut(current_id).unwrap().set_planning(planning, line);
+                    document.node_mut(current_id).unwrap().set_planning(planning, &line);
                 } else {
-                    println!("WARNING: planning info found above first headline");
-                    document.section_mut(current_id).unwrap().add_line(line);
+                    org_warning!("planning info found above first headline");
+                    document.section_mut(current_id).unwrap().add_line(&line);
                 }
-            } else if let Some(element) = Element::parse_greater(&line, &mut parser)? {
+            } else if let Some(element) = Element::parse(&line, &mut parser) {
                 document.section_mut(current_id).unwrap().elements.push(element);
             } else {
-                document.section_mut(current_id).unwrap().add_line(line);
+                document.section_mut(current_id).unwrap().add_line(&line);
             }
         }
 
-        Ok(document)
+        if let Some(error) = parser.io_error {
+            Err(error)
+        } else {
+            Ok(document)
+        }
     }
 
     pub fn node(&self, id: NodeId) -> Option<&Node> {
@@ -139,7 +144,7 @@ impl Document {
         let mut parent_id = current_id;
 
         if parent_id.is_some() && self.node(parent_id.unwrap()).is_none() {
-            println!("WARNING: Node not found: {}", parent_id.unwrap());
+            org_warning!("Node not found: {}", parent_id.unwrap());
             return None
         }
 
@@ -150,10 +155,10 @@ impl Document {
         if let Some(parent_id) = parent_id {
             let expected_indent = self.node(parent_id).unwrap().indent + 1;
             if indent > expected_indent {
-                println!("WARNING: Indent is too deep: {} > {}", indent, expected_indent);
+                org_warning!("Indent is too deep: {} > {}", indent, expected_indent);
             }
         } else if indent > 1 {
-            println!("WARNING: Indent is too deep: {} > 0", indent);
+            org_warning!("Indent is too deep: {} > 0", indent);
         }
 
         parent_id
@@ -227,6 +232,10 @@ impl Document {
 
 impl fmt::Display for Document {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.section)?;
+        if !self.section.is_empty() && !self.tree.is_empty() {
+            write!(f, "\n")?;
+        }
         write!(f, "{}", self.all_nodes().join("\n"))
     }
 }

@@ -2,9 +2,9 @@ use document::{Document, DocumentId};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs;
-use parser::Error;
 use timestamp::{Date, today};
 use agenda::{Agenda, AgendaRange};
+use std::io::Error as IoError;
 use std::ops::{Index, IndexMut};
 use std::ffi::OsStr;
 
@@ -31,10 +31,10 @@ impl Library {
         (id, &self.documents[&id])
     }
 
-    pub fn open(&mut self, path: &Path) -> Result<(), Error> {
+    pub fn open(&mut self, path: &Path) -> Result<(), IoError> {
         if path.is_dir() {
-            for entry in fs::read_dir(path).map_err(Error::IoError)? {
-                let path = entry.map_err(Error::IoError)?.path();
+            for entry in fs::read_dir(path)? {
+                let path = entry?.path();
                 if path.is_dir() || path.extension() == Some(OsStr::new("org")) {
                     self.open(&path)?;
                 }
@@ -45,7 +45,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn open_file(&mut self, path: &Path) -> Result<(DocumentId, &Document), Error> {
+    pub fn open_file(&mut self, path: &Path) -> Result<(DocumentId, &Document), IoError> {
         Ok(self.add(Document::open_file(path)?))
     }
 

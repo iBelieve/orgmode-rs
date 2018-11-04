@@ -131,11 +131,11 @@ impl Timestamp {
         let end = if let Some(end) = end {
             let end = parse_timestamp(end)?;
             if start.repeater.is_some() || end.repeater.is_some() {
-                println!("WARNING: Multi-day repeating timestamps are not supported");
+                org_warning!("Multi-day repeating timestamps are not supported");
                 start.repeater = None;
             }
             if end.delay.is_some() {
-                println!("WARNING: Ending timestamp should not have a delay");
+                org_warning!("Ending timestamp should not have a delay");
             }
             Some(end)
         } else {
@@ -293,7 +293,7 @@ fn parse_timestamp(timestamp: &str) -> Option<TimestampPart> {
     let captures = match DATE_REGEX.captures(timestamp) {
         Some(captures) => captures,
         None => {
-            println!("WARNING: Invalid date: {}", timestamp);
+            org_warning!("Invalid date: {}", timestamp);
             return None;
         }
     };
@@ -335,7 +335,7 @@ fn parse_timestamp(timestamp: &str) -> Option<TimestampPart> {
         let mut unit = parse_unit(unit);
 
         if unit == TimeUnit::Hour {
-            println!("WARNING: Hourly repeaters are not supported");
+            org_warning!("Hourly repeaters are not supported");
             unit = TimeUnit::Day;
             value = 1;
         }

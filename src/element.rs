@@ -1,36 +1,42 @@
 use drawer::Drawer;
-use parser::{Parser, Error};
+use parser::Parser;
 use std::fmt;
 use itertools::Itertools;
+use list::List;
+use text::Text;
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Element {
     Drawer(Drawer),
-    Paragraph(Paragraph),
+    Paragraph(Text),
     Comment { text: String },
     FixedWidthArea { text: String },
     // Block(Block)
-    // HorizontalRule,
+    HorizontalRule,
+    List(List)
     // Table
 }
 
 impl Element {
-    pub fn parse_greater(line: &str, parser: &mut Parser) -> Result<Option<Element>, Error> {
-        let element = if let Some(text) = parse_area_prefixed(line, parser, "#")? {
+    pub fn parse(line: &str, parser: &mut Parser) -> Option<Element> {
+        if let Some(text) = parse_area_prefixed(line, parser, "#") {
             Some(Element::Comment { text })
-        } else if let Some(text) = parse_area_prefixed(line, parser, ":")? {
+        } else if let Some(text) = parse_area_prefixed(line, parser, ":") {
             Some(Element::FixedWidthArea { text })
         // } else if let Some(block) = Block::parse(line, parser)? {
         //     Some(Element::Block(block))
+        } else if is_horizontal_rule(line) {
+            Some(Element::HorizontalRule)
+        } else if let Some(list) = List::parse(line, parser) {
+            Some(Element::List(list))
         } else {
             None
-        };
-        Ok(element)
+        }
     }
 
-    pub fn new_paragraph(text: String) -> Self {
-        Element::Paragraph(Paragraph { text })
+    pub fn new_paragraph(text: &str) -> Self {
+        Element::Paragraph(Text::new(text))
     }
 }
 
@@ -38,24 +44,12 @@ impl fmt::Display for Element {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Element::Drawer(drawer) => write!(f, "{}", drawer),
-            Element::Paragraph(paragraph) => write!(f, "{}", paragraph.text),
+            Element::Paragraph(paragraph) => write!(f, "{}", paragraph),
             Element::Comment { text } => write!(f, "{}", prefixed(text, "#")),
             Element::FixedWidthArea { text } => write!(f, "{}", prefixed(text, ":")),
+            Element::HorizontalRule => write!(f, "{}", "-".repeat(5)),
+            Element::List(list) => write!(f, "{}", list),
         }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Paragraph {
-    text: String
-}
-
-impl Paragraph {
-    pub fn add_line(&mut self, line: &str) {
-        if !self.text.is_empty() {
-            self.text += "\n"
-        }
-        self.text += line;
     }
 }
 
@@ -75,13 +69,13 @@ fn parse_prefixed<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
     }
 }
 
-fn parse_area_prefixed(line: &str,  parser: &mut Parser, prefix: &str) -> Result<Option<String>, Error> {
-    let area = if let Some(area) = parse_prefixed(line, prefix) {
+fn parse_area_prefixed(line: &str,  parser: &mut Parser, prefix: &str) -> Option<String> {
+    if let Some(area) = parse_prefixed(line, prefix) {
         let mut area = area.to_string();
 
         while let Some(line) = parser.peek().map(|s| s.to_string()) {
             if let Some(more_area) = parse_prefixed(&line, prefix) {
-                parser.next()?;
+                parser.next();
                 area += "\n";
                 area += more_area;
             } else {
@@ -91,6 +85,9 @@ fn parse_area_prefixed(line: &str,  parser: &mut Parser, prefix: &str) -> Result
         Some(area)
     } else {
         None
-    };
-    Ok(area)
+    }
+}
+
+fn is_horizontal_rule(line: &str) -> bool {
+    line.len() >= 5 && line.chars().all(|c| c == '-')
 }

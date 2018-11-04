@@ -1,46 +1,53 @@
 extern crate chrono;
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
-extern crate failure;
-extern crate regex;
 extern crate itertools;
+extern crate regex;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate textwrap;
 
+#[macro_use]
+mod parser;
+
+mod agenda;
 mod document;
 mod drawer;
 mod element;
 mod headline;
+mod library;
+mod list;
 mod node;
-mod parser;
 mod planning;
 mod section;
 mod timestamp;
-mod library;
-mod agenda;
-mod tree;
 mod timestamps;
+mod tree;
+mod utils;
+mod text;
 
 use std::path::Path;
+use std::io::Error as IoError;
 
-pub use headline::Headline;
-pub use drawer::Drawer;
-pub use element::{Element, Paragraph};
-pub use node::{Node, NodeId};
+pub use agenda::{Agenda, AgendaEntry, AgendaEntryKind, AgendaRange};
 pub use document::{Document, DocumentId};
-pub use timestamp::{Timestamp, Date, Time, today};
-pub use section::Section;
-pub use planning::Planning;
-pub use parser::{Parser, Error};
+pub use drawer::Drawer;
+pub use element::Element;
+pub use headline::Headline;
 pub use library::Library;
-pub use agenda::{Agenda, AgendaEntry, AgendaRange, AgendaEntryKind};
+pub use node::{Node, NodeId};
+pub use parser::Parser;
+pub use planning::Planning;
+pub use section::Section;
+pub use timestamp::{today, Date, Time, Timestamp};
 
-pub fn open_file(path: &Path) -> Result<Document, Error> {
+pub const LINE_LENGTH: usize = 80;
+
+pub fn open_file(path: &Path) -> Result<Document, IoError> {
     Document::open_file(path)
 }
 
-pub fn from_string(source: &str) -> Result<Document, Error> {
+pub fn from_string(source: &str) -> Document {
     Document::from_string(source)
 }

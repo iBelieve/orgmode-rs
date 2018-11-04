@@ -27,12 +27,14 @@ impl Section {
         self.elements.push(Element::Drawer(drawer))
     }
 
-    pub fn add_line(&mut self, line: String) {
-        self.timestamps.parse_and_append(&line);
+    pub fn add_line(&mut self, line: &str) {
+        self.timestamps.parse_and_append(line);
 
         if let Some(Element::Paragraph(paragraph)) = self.elements.last_mut() {
-            paragraph.add_line(&line);
-            return;
+            if !paragraph.at_end() {
+                paragraph.add_line(line);
+                return;
+            }
         }
 
         self.elements.push(Element::new_paragraph(line));

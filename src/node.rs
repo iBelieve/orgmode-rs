@@ -31,15 +31,15 @@ impl Node {
         }
     }
 
-    pub fn add_line(&mut self, line: String) {
+    pub fn add_line(&mut self, line: &str) {
         self.section.add_line(line)
     }
 
-    pub fn set_planning(&mut self, planning: Planning, line: String) {
+    pub fn set_planning(&mut self, planning: Planning, line: &str) {
         if self.has_planning() {
-            println!("WARNING: Planning info already set");
+            org_warning!("Planning info already set");
         } else if !self.section.is_empty() || !self.properties.is_empty() {
-            println!("WARNING: Planning info must come immediately after the headline");
+            org_warning!("Planning info must come immediately after the headline");
             self.add_line(line);
         } else {
             self.deadline = planning.deadline;

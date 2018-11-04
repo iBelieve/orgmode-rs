@@ -1,6 +1,5 @@
 use regex::Regex;
 use timestamp::{Timestamp, TimestampKind};
-use parser::Error;
 use std::fmt;
 
 /// See <https://orgmode.org/worg/dev/org-syntax.html#Clock,_Diary_Sexp_and_Planning>
@@ -12,7 +11,7 @@ pub struct Planning {
 }
 
 impl Planning {
-    pub fn parse(line: &str) -> Result<Option<Planning>, Error> {
+    pub fn parse(line: &str) -> Option<Planning> {
         lazy_static! {
             static ref ONE_REGEX: Regex = Regex::new(r#"(?x)
                 (?P<keyword>DEADLINE|SCHEDULED|CLOSED):
@@ -32,7 +31,7 @@ impl Planning {
             "#).unwrap();
         }
 
-        let planning = if COMBINED_REGEX.is_match(line) {
+        if COMBINED_REGEX.is_match(line) {
             let mut planning = Planning {
                 deadline: None,
                 scheduled: None,
@@ -50,21 +49,21 @@ impl Planning {
                 match keyword {
                     "DEADLINE" => {
                         if planning.deadline.is_some() {
-                            println!("WARNING: deadline is already set");
+                            org_warning!("deadline is already set");
                         }
                         timestamp.kind = TimestampKind::Deadline;
                         planning.deadline = Some(timestamp);
                     },
                     "SCHEDULED" => {
                         if planning.scheduled.is_some() {
-                            println!("WARNING: scheduled is already set");
+                            org_warning!("scheduled is already set");
                         }
                         timestamp.kind = TimestampKind::Scheduled;
                         planning.scheduled = Some(timestamp);
                     },
                     "CLOSED" => {
                         if planning.closed.is_some() {
-                            println!("WARNING: closed is already set");
+                            org_warning!("closed is already set");
                         }
                         timestamp.kind = TimestampKind::Closed;
                         planning.closed = Some(timestamp);
@@ -76,9 +75,7 @@ impl Planning {
             Some(planning)
         } else {
             None
-        };
-
-        Ok(planning)
+        }
     }
 }
 
@@ -107,7 +104,7 @@ mod tests {
         let line = "CLOSED: [2018-10-27 Sat 20:09] SCHEDULED: <2018-09-15 Sat 10:48 AM> DEADLINE: <2018-10-31 Wed>";
 
         // NOTE: this assumes that timestamp parsing is tested elsewhere
-        assert_eq!(Planning::parse(line).unwrap(), Some(Planning {
+        assert_eq!(Planning::parse(line), Some(Planning {
             deadline: Some(Timestamp::parse("<2018-10-31 Wed>").unwrap()),
             scheduled: Some(Timestamp::parse("<2018-09-15 Sat 10:48 AM>").unwrap()),
             closed: Some(Timestamp::parse("[2018-10-27 Sat 20:09]").unwrap()),
