@@ -3,6 +3,7 @@ use itertools::Itertools;
 pub trait StringUtils {
     fn indent(&self) -> usize;
     fn add_indent(&self, indent: usize) -> String;
+    fn capped(&self, cap: &str) -> String;
 }
 
 impl<'a> StringUtils for &'a str {
@@ -14,6 +15,10 @@ impl<'a> StringUtils for &'a str {
         let indent = " ".repeat(indent);
         let prefix = String::from("\n") + &indent;
         indent + &self.lines().join(&prefix)
+    }
+
+    fn capped(&self, cap: &str) -> String {
+        String::from(cap) + self + cap
     }
 }
 
@@ -28,5 +33,9 @@ impl StringUtils for String {
         let indent = " ".repeat(indent);
         let prefix = String::from("\n") + &indent;
         indent + &self.lines().join(&prefix)
+    }
+
+    fn capped(&self, cap: &str) -> String {
+        String::from(cap) + self + cap
     }
 }

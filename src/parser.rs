@@ -58,7 +58,7 @@ impl<'a> Parser<'a> {
         let mut lines = Vec::new();
 
         while let Some(line) = self.next() {
-            if line == end_line {
+            if line.trim() == end_line {
                 return lines;
             } else {
                 lines.push(line);

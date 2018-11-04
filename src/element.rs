@@ -1,8 +1,9 @@
 use drawer::Drawer;
-use parser::Parser;
-use std::fmt;
 use itertools::Itertools;
 use list::List;
+use parser::Parser;
+use std::fmt;
+use table::Table;
 use text::Text;
 
 #[derive(Serialize, Deserialize)]
@@ -14,8 +15,8 @@ pub enum Element {
     FixedWidthArea { text: String },
     // Block(Block)
     HorizontalRule,
-    List(List)
-    // Table
+    Table(Table),
+    List(List),
 }
 
 impl Element {
@@ -28,6 +29,8 @@ impl Element {
         //     Some(Element::Block(block))
         } else if is_horizontal_rule(line) {
             Some(Element::HorizontalRule)
+        } else if let Some(table) = Table::parse(line, parser) {
+            Some(Element::Table(table))
         } else if let Some(list) = List::parse(line, parser) {
             Some(Element::List(list))
         } else {
@@ -48,13 +51,16 @@ impl fmt::Display for Element {
             Element::Comment { text } => write!(f, "{}", prefixed(text, "#")),
             Element::FixedWidthArea { text } => write!(f, "{}", prefixed(text, ":")),
             Element::HorizontalRule => write!(f, "{}", "-".repeat(5)),
+            Element::Table(table) => write!(f, "{}", table),
             Element::List(list) => write!(f, "{}", list),
         }
     }
 }
 
 fn prefixed(text: &str, prefix: &str) -> String {
-    text.split('\n').map(|line| format!("{} {}", prefix, line)).join("\n")
+    text.split('\n')
+        .map(|line| format!("{} {}", prefix, line))
+        .join("\n")
 }
 
 fn parse_prefixed<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
@@ -69,7 +75,7 @@ fn parse_prefixed<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
     }
 }
 
-fn parse_area_prefixed(line: &str,  parser: &mut Parser, prefix: &str) -> Option<String> {
+fn parse_area_prefixed(line: &str, parser: &mut Parser, prefix: &str) -> Option<String> {
     if let Some(area) = parse_prefixed(line, prefix) {
         let mut area = area.to_string();
 

@@ -21,14 +21,15 @@ mod list;
 mod node;
 mod planning;
 mod section;
+mod table;
+mod text;
 mod timestamp;
 mod timestamps;
 mod tree;
 mod utils;
-mod text;
 
-use std::path::Path;
 use std::io::Error as IoError;
+use std::path::Path;
 
 pub use agenda::{Agenda, AgendaEntry, AgendaEntryKind, AgendaRange};
 pub use document::{Document, DocumentId};
@@ -36,10 +37,12 @@ pub use drawer::Drawer;
 pub use element::Element;
 pub use headline::Headline;
 pub use library::Library;
+pub use list::List;
 pub use node::{Node, NodeId};
 pub use parser::Parser;
 pub use planning::Planning;
 pub use section::Section;
+pub use table::Table;
 pub use timestamp::{today, Date, Time, Timestamp};
 
 pub const LINE_LENGTH: usize = 80;

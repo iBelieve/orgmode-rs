@@ -76,7 +76,7 @@ impl fmt::Display for Drawer {
 
 fn parse_drawername(line: &str) -> Option<&str> {
     lazy_static! {
-        static ref REGEX: Regex = Regex::new("^:([a-zA-Z0-9_\\-]+):$").unwrap();
+        static ref REGEX: Regex = Regex::new("^\\s*:([a-zA-Z0-9_\\-]+):$").unwrap();
     }
 
     if let Some(captures) = REGEX.captures(line) {
