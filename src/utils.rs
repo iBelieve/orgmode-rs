@@ -5,7 +5,7 @@ pub trait StringUtils {
     fn add_indent(&self, indent: usize) -> String;
 }
 
-impl StringUtils for &str {
+impl<'a> StringUtils for &'a str {
     fn indent(&self) -> usize {
         self.chars().take_while(|c| c.is_whitespace()).count()
     }
