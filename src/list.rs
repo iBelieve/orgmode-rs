@@ -286,32 +286,17 @@ impl ListItem {
     }
 }
 
-fn is_list_item(line: &str) -> bool {
-    lazy_static! {
-        static ref REGEX: Regex = Regex::new(
-            r#"(?x)
-            ^
-            (?P<indent>\s*)
-            (?P<bullet>-|\+|\s\*|(?P<counter>[0-9]+|[a-zA-Z])[.\)])
-        "#
-        )
-            .unwrap();
-    }
-
-    REGEX.is_match(line)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_is_list_item() {
-        assert!(is_list_item("1. Test"));
-        assert!(is_list_item("A) Test"));
-        assert!(is_list_item(" * Test"));
-        assert!(is_list_item(" - Test"));
-        assert!(!is_list_item("Test"));
-        assert!(!is_list_item("* Test"));
+        assert!(ListItem::parse("1. Test").is_some());
+        assert!(ListItem::parse("A) Test").is_some());
+        assert!(ListItem::parse(" * Test").is_some());
+        assert!(ListItem::parse(" - Test").is_some());
+        assert!(ListItem::parse("Test").is_none());
+        assert!(ListItem::parse("* Test").is_none());
     }
 }

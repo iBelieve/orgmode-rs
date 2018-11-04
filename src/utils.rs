@@ -22,8 +22,6 @@ impl<'a> StringUtils for &'a str {
     }
 }
 
-
-
 impl StringUtils for String {
     fn indent(&self) -> usize {
         self.chars().take_while(|c| c.is_whitespace()).count()

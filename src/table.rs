@@ -48,7 +48,7 @@ impl Table {
             .unwrap_or(0)
     }
 
-    pub fn cell_mut(&self, row: usize, column: usize) -> Option<&TableCell> {
+    pub fn cell(&self, row: usize, column: usize) -> Option<&TableCell> {
         if row < self.row_count() && column < self.column_count() {
             if let TableEntry::Row(ref row) = self.rows[row] {
                 Some(row.cell(column))
@@ -60,7 +60,7 @@ impl Table {
         }
     }
 
-    pub fn cell(&mut self, row: usize, column: usize) -> Option<&TableCell> {
+    pub fn cell_mut(&mut self, row: usize, column: usize) -> Option<&mut TableCell> {
         if row < self.row_count() && column < self.column_count() {
             if let TableEntry::Row(ref mut row) = self.rows[row] {
                 Some(row.cell_mut(column))
@@ -108,7 +108,8 @@ impl TableEntry {
                 .split('|')
                 .map(|cell| TableCell {
                     text: cell.trim().to_string(),
-                }).collect();
+                })
+                .collect();
             Some(TableEntry::Row(TableRow { cells }))
         } else {
             None
