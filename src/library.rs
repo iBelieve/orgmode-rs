@@ -2,6 +2,7 @@ use document::{Document, DocumentId};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs;
+use std::fmt;
 use timestamp::{Date, today};
 use agenda::{Agenda, AgendaRange};
 use std::io::Error as IoError;
@@ -85,5 +86,13 @@ impl Index<DocumentId> for Library {
 impl IndexMut<DocumentId> for Library {
     fn index_mut(&mut self, id: DocumentId) -> &mut Document {
         self.document_mut(id).unwrap()
+    }
+}
+
+impl fmt::Debug for Library {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Library")
+           .field("documents", &self.documents.values())
+           .finish()
     }
 }

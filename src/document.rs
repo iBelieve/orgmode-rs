@@ -243,6 +243,8 @@ impl fmt::Display for Document {
 impl fmt::Debug for Document {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         fmt.debug_struct("Document")
+            .field("id", &self.id)
+            .field("path", &self.path)
             .field("title", &self.title)
             .finish()
     }
