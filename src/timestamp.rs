@@ -4,8 +4,18 @@ use std::fmt;
 use std::cmp::Ordering;
 use chrono::Datelike;
 
+pub use chrono::Duration;
+
 pub type Date = chrono::NaiveDate;
 pub type Time = chrono::NaiveTime;
+
+lazy_static! {
+    pub(crate) static ref TIMESTAMP_REGEX: Regex = Regex::new(r#"(?x)
+        [<\[] \d+-\d+-\d+ [^>\]]+ [>\]]
+        (-- [<\[] \d+-\d+-\d+ [^>\]]+ [>\]])?
+    "#).unwrap();
+}
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Timestamp {
@@ -145,7 +155,7 @@ impl Timestamp {
             date: start.date,
             end_date: end.as_ref().map(|end| end.date),
             time: start.time,
-            end_time: end.and_then(|end| end.end_time).or(start.end_time),
+            end_time: end.and_then(|end| end.time).or(start.end_time),
             kind: if start.is_active { TimestampKind::Active } else { TimestampKind::Inactive },
             repeater: start.repeater,
             delay: start.delay
@@ -184,7 +194,7 @@ impl Timestamp {
                         TimeUnit::Month => {
                             self.date.day() == date.day() &&
                                 ((12 * (date.year() - self.date.year()) as u32 +
-                                 (date.month() - self.date.month()) as u32) % repeater.value == 0)
+                                  (date.month() - self.date.month()) as u32) % repeater.value == 0)
                         },
                         TimeUnit::Day => {
                             duration % repeater.value == 0
@@ -227,6 +237,22 @@ impl Timestamp {
             ("[", "]")
         }
     }
+
+    pub fn duration(&self) -> Duration {
+        let mut duration = Duration::zero();
+
+        if let Some(end_date) = self.end_date {
+            duration = duration + end_date.signed_duration_since(self.date);
+        }
+
+        if let Some(start_time) = self.time {
+            if let Some(end_time) = self.end_time {
+                duration = duration + end_time.signed_duration_since(start_time)
+            }
+        }
+
+        duration
+    }
 }
 
 impl fmt::Display for Timestamp {
@@ -251,7 +277,7 @@ impl fmt::Display for Timestamp {
             write!(f, "{}", end_date.format("%Y-%m-%d %a"))?;
 
             if let Some(end_time) = self.end_time {
-                write!(f, "-{}", end_time.format("%H:%M"))?;
+                write!(f, "{}", end_time.format("%H:%M"))?;
             }
             write!(f, "{}", end)?;
         }
@@ -306,8 +332,8 @@ fn parse_timestamp(timestamp: &str) -> Option<TimestampPart> {
 
     let (time, end_time) = if let Some(captures) = TIME_REGEX.captures(timestamp) {
         let start_time = time(captures.name("hour").unwrap().as_str(),
-                        captures.name("minute").unwrap().as_str(),
-                        captures.name("pm").map(|c|c.as_str()));
+                              captures.name("minute").unwrap().as_str(),
+                              captures.name("pm").map(|c|c.as_str()));
 
         let end_time = if let Some(end_hour) = captures.name("end_hour") {
             Some(time(end_hour.as_str(),
@@ -412,6 +438,10 @@ fn time(hour: &str, minute: &str, am_pm: Option<&str>) -> Time {
 
 pub fn today() -> Date {
     chrono::Local::today().naive_local()
+}
+
+pub fn format_duration(duration: &Duration) -> String {
+    format!("{}:{:02}", duration.num_hours(), duration.num_minutes() - 60 * duration.num_hours())
 }
 
 #[cfg(test)]

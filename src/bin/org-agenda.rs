@@ -6,7 +6,7 @@ extern crate chrono;
 
 use std::env;
 use std::path::Path;
-use orgmode::{Library, Agenda, AgendaRange, AgendaEntryKind, Timestamp, today};
+use orgmode::{Library, Agenda, AgendaRange, AgendaEntryKind, Timestamp, today, format_duration};
 use colored::Colorize;
 
 fn main() {
@@ -67,7 +67,19 @@ fn print_agenda(agenda: &Agenda) {
             if let Some(ref priority) = entry.headline.priority {
                 print!(" {}", format!("[#{}]", priority).red());
             }
-            println!(" {}", entry.headline.title);
+            print!(" {}", entry.headline.title);
+
+            if !entry.time_spent.is_zero() || entry.effort.is_some() {
+                print!(" {}", format!("[{}", format_duration(&entry.time_spent)).bold());
+
+                if let Some(ref effort) = entry.effort {
+                    print!("{}", format!("/{}", format_duration(effort)).bold());
+                }
+
+                print!("{}", "]".bold());
+            }
+
+            println!();
         }
     }
 }

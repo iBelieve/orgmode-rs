@@ -18,6 +18,7 @@ mod element;
 mod headline;
 mod library;
 mod list;
+mod logbook;
 mod node;
 mod planning;
 mod section;
@@ -38,12 +39,13 @@ pub use element::Element;
 pub use headline::Headline;
 pub use library::Library;
 pub use list::List;
+pub use logbook::Logbook;
 pub use node::{Node, NodeId};
 pub use parser::Parser;
 pub use planning::Planning;
 pub use section::Section;
 pub use table::Table;
-pub use timestamp::{today, Date, Time, Timestamp};
+pub use timestamp::{today, format_duration, Date, Duration, Time, Timestamp};
 
 pub const LINE_LENGTH: usize = 80;
 

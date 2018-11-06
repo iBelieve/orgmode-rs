@@ -1,16 +1,16 @@
+use headline::Headline;
+use itertools::Itertools;
+use node::{Node, NodeId};
+use parser::Parser;
 use section::Section;
 use std::collections::HashMap;
 use std::fmt;
-use node::{Node, NodeId};
-use headline::Headline;
-use itertools::Itertools;
-use parser::Parser;
-use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::Error as IoError;
-use timestamp::{Timestamp, Date};
-use tree::Tree;
 use std::iter::repeat;
+use std::path::{Path, PathBuf};
+use timestamp::{Date, Duration, Timestamp};
+use tree::Tree;
 
 pub type DocumentId = usize;
 
@@ -22,7 +22,7 @@ pub struct Document {
     pub section: Section,
     pub properties: HashMap<String, String>,
     #[serde(flatten)]
-    tree: Tree<Node>
+    tree: Tree<Node>,
 }
 
 impl Document {
@@ -33,7 +33,7 @@ impl Document {
             title: String::new(),
             section: Section::new(),
             properties: HashMap::new(),
-            tree: Tree::new()
+            tree: Tree::new(),
         }
     }
 
@@ -48,12 +48,16 @@ impl Document {
     }
 
     fn parse(path: Option<PathBuf>, mut parser: Parser) -> Result<Self, IoError> {
-        use planning::Planning;
+        use drawer::Drawer;
         use element::Element;
         use headline::Headline;
-        use drawer::Drawer;
+        use planning::Planning;
 
-        let todo_keywords = vec!["TODO".to_string(), "IN-PROGRESS".to_string(), "DONE".to_string()];
+        let todo_keywords = vec![
+            "TODO".to_string(),
+            "IN-PROGRESS".to_string(),
+            "DONE".to_string(),
+        ];
 
         let mut document = Document::new(path);
         let mut current_id = None;
@@ -76,13 +80,20 @@ impl Document {
                 }
             } else if let Some(planning) = Planning::parse(&line) {
                 if let Some(current_id) = current_id {
-                    document.node_mut(current_id).unwrap().set_planning(planning, &line);
+                    document
+                        .node_mut(current_id)
+                        .unwrap()
+                        .set_planning(planning, &line);
                 } else {
                     org_warning!("planning info found above first headline");
                     document.section_mut(current_id).unwrap().add_line(&line);
                 }
             } else if let Some(element) = Element::parse(&line, &mut parser) {
-                document.section_mut(current_id).unwrap().elements.push(element);
+                document
+                    .section_mut(current_id)
+                    .unwrap()
+                    .elements
+                    .push(element);
             } else {
                 document.section_mut(current_id).unwrap().add_line(&line);
             }
@@ -103,32 +114,33 @@ impl Document {
         self.tree.node_mut(id)
     }
 
-    pub fn all_ids(&self) -> impl Iterator<Item=NodeId> + '_ {
+    pub fn all_ids(&self) -> impl Iterator<Item = NodeId> + '_ {
         self.tree.all_ids()
     }
 
-    pub fn all_nodes(&self) -> impl Iterator<Item=&Node> {
+    pub fn all_nodes(&self) -> impl Iterator<Item = &Node> {
         self.tree.all_nodes()
     }
 
-    pub fn root_ids(&self) -> impl Iterator<Item=NodeId> + '_ {
+    pub fn root_ids(&self) -> impl Iterator<Item = NodeId> + '_ {
         self.tree.child_ids(self.tree.root_id())
     }
 
-    pub fn roots(&self) -> impl Iterator<Item=&Node> {
+    pub fn roots(&self) -> impl Iterator<Item = &Node> {
         self.tree.children(self.tree.root_id())
     }
 
-    pub fn child_ids(&self, id: Option<NodeId>) -> impl Iterator<Item=NodeId> + '_ {
+    pub fn child_ids(&self, id: Option<NodeId>) -> impl Iterator<Item = NodeId> + '_ {
         self.tree.child_ids(id.unwrap_or(self.tree.root_id()))
     }
 
-    pub fn children(&self, id: Option<NodeId>) -> impl Iterator<Item=&Node> {
+    pub fn children(&self, id: Option<NodeId>) -> impl Iterator<Item = &Node> {
         self.tree.children(id.unwrap_or(self.tree.root_id()))
     }
 
     pub fn parent_id(&self, id: NodeId) -> Option<NodeId> {
-        self.tree.parent_id(id)
+        self.tree
+            .parent_id(id)
             .filter(|id| id != &self.tree.root_id())
     }
 
@@ -145,7 +157,7 @@ impl Document {
 
         if parent_id.is_some() && self.node(parent_id.unwrap()).is_none() {
             org_warning!("Node not found: {}", parent_id.unwrap());
-            return None
+            return None;
         }
 
         while parent_id.is_some() && self.node(parent_id.unwrap()).unwrap().indent >= indent {
@@ -166,8 +178,12 @@ impl Document {
 
     pub fn add_new_node(&mut self, current_id: Option<NodeId>, headline: Headline) -> NodeId {
         let indent = headline.indent;
-        let parent_id = self.find_parent(current_id, indent).unwrap_or(self.tree.root_id());
-        let new_id = self.tree.insert_node(parent_id, Node::from_headline(headline));
+        let parent_id = self
+            .find_parent(current_id, indent)
+            .unwrap_or(self.tree.root_id());
+        let new_id = self
+            .tree
+            .insert_node(parent_id, Node::from_headline(headline));
         self.tree[new_id].id = new_id;
         new_id
     }
@@ -188,19 +204,21 @@ impl Document {
         }
     }
 
-    pub fn nodes_for_date<'a>(&'a self, date: &'a Date) -> impl Iterator<Item=(Timestamp, &'a Node)> {
+    pub fn nodes_for_date<'a>(
+        &'a self,
+        date: &'a Date,
+    ) -> impl Iterator<Item = (Timestamp, &'a Node)> {
         self.all_nodes()
             .flat_map(move |node| node.timestamps_for_date(date).zip(repeat(node)))
     }
 
-    pub fn nodes_past_scheduled(&self) -> impl Iterator<Item=&Node> {
+    pub fn nodes_past_scheduled(&self) -> impl Iterator<Item = &Node> {
         self.all_nodes()
             .filter(move |node| node.is_past_scheduled())
     }
 
-    pub fn nodes_past_deadline(&self) -> impl Iterator<Item=&Node> {
-        self.all_nodes()
-            .filter(move |node| node.is_past_deadline())
+    pub fn nodes_past_deadline(&self) -> impl Iterator<Item = &Node> {
+        self.all_nodes().filter(move |node| node.is_past_deadline())
     }
 
     // TODO: Support extending parent properties via NAME+
@@ -227,6 +245,19 @@ impl Document {
         } else {
             None
         }
+    }
+
+    pub fn node_time_spent(&self, node_id: NodeId) -> Duration {
+        let node_time = self
+            .node(node_id)
+            .map(|node| node.logbook().time_spent())
+            .unwrap_or_else(Duration::zero);
+        let children_time = self
+            .child_ids(Some(node_id))
+            .map(|child_id| self.node_time_spent(child_id))
+            .fold(Duration::zero(), |total, duration| total + duration);
+
+        node_time + children_time
     }
 }
 

@@ -1,6 +1,5 @@
 use std::ops::{Add, AddAssign};
-use regex::Regex;
-use timestamp::{Timestamp, Date};
+use timestamp::{Timestamp, Date, TIMESTAMP_REGEX};
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Timestamps {
@@ -9,14 +8,7 @@ pub struct Timestamps {
 
 impl Timestamps {
     pub fn parse(text: &str) -> Timestamps {
-        lazy_static! {
-            static ref REGEX: Regex = Regex::new(r#"(?x)
-                [<\[] \d+-\d+-\d+ [^>\]]+ [>\]]
-                (-- [<\[] \d+-\d+-\d+ [^>\]]+ [>\]])?
-            "#).unwrap();
-        }
-
-        let mut timestamps: Vec<Timestamp> = REGEX.captures_iter(text)
+        let mut timestamps: Vec<Timestamp> = TIMESTAMP_REGEX.captures_iter(text)
             .filter_map(|timestamp| Timestamp::parse(&timestamp[0]))
             .collect();
         timestamps.sort();

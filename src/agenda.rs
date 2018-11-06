@@ -84,7 +84,9 @@ pub struct AgendaEntry {
     pub headline: Headline,
     pub category: String,
     pub timestamp: Timestamp,
-    pub kind: AgendaEntryKind
+    pub kind: AgendaEntryKind,
+    pub time_spent: Duration,
+    pub effort: Option<Duration>
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -110,7 +112,9 @@ impl AgendaEntry {
             headline: node.headline.clone(),
             category,
             timestamp,
-            kind
+            kind,
+            time_spent: document.node_time_spent(node.id),
+            effort: node.effort()
         }
     }
 }
