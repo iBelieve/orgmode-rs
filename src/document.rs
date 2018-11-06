@@ -2,6 +2,7 @@ use headline::Headline;
 use itertools::Itertools;
 use node::{Node, NodeId};
 use parser::Parser;
+use regex::Regex;
 use section::Section;
 use std::collections::HashMap;
 use std::fmt;
@@ -34,6 +35,14 @@ impl Document {
             section: Section::new(),
             properties: HashMap::new(),
             tree: Tree::new(),
+        }
+    }
+
+    pub(crate) fn set_id(&mut self, id: DocumentId) {
+        self.id = id;
+        let node_ids: Vec<NodeId> = self.all_ids().collect();
+        for node_id in node_ids.into_iter() {
+            self.node_mut(node_id).unwrap().document_id = id;
         }
     }
 
@@ -94,6 +103,8 @@ impl Document {
                     .unwrap()
                     .elements
                     .push(element);
+            } else if let Some(title) = parse_title(&line) {
+                document.title = title;
             } else {
                 document.section_mut(current_id).unwrap().add_line(&line);
             }
@@ -184,6 +195,7 @@ impl Document {
         let new_id = self
             .tree
             .insert_node(parent_id, Node::from_headline(headline));
+        self.tree[new_id].document_id = self.id;
         self.tree[new_id].id = new_id;
         new_id
     }
@@ -259,6 +271,38 @@ impl Document {
 
         node_time + children_time
     }
+
+    pub fn node_time_spent_today(&self, node_id: NodeId) -> Duration {
+        let node_time = self
+            .node(node_id)
+            .map(|node| node.logbook().time_spent_today())
+            .unwrap_or_else(Duration::zero);
+        let children_time = self
+            .child_ids(Some(node_id))
+            .map(|child_id| self.node_time_spent_today(child_id))
+            .fold(Duration::zero(), |total, duration| total + duration);
+
+        node_time + children_time
+    }
+
+    pub fn nodes_clocked_to_today(&self) -> impl Iterator<Item = &Node> {
+        self.all_nodes().filter(|node| node.was_clocked_to_today())
+    }
+
+    pub fn parent_with_tag(&self, node_id: NodeId, tag: &str) -> Option<&Node> {
+        let mut node_id = Some(node_id);
+
+        while let Some(id) = node_id {
+            if let Some(node) = self.node(id) {
+                if node.has_tag(tag) {
+                    return Some(node);
+                }
+            }
+            node_id = self.parent_id(id);
+        }
+
+        None
+    }
 }
 
 impl fmt::Display for Document {
@@ -278,5 +322,17 @@ impl fmt::Debug for Document {
             .field("path", &self.path)
             .field("title", &self.title)
             .finish()
+    }
+}
+
+fn parse_title(line: &str) -> Option<String> {
+    lazy_static! {
+        static ref REGEX: Regex = Regex::new(r#"^#\+TITLE:\s*(.*)$"#).unwrap();
+    }
+
+    if let Some(captures) = REGEX.captures(line) {
+        Some(captures[1].to_string())
+    } else {
+        None
     }
 }

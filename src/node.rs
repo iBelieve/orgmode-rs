@@ -8,11 +8,13 @@ use section::Section;
 use std::collections::HashMap;
 use std::fmt;
 use timestamp::{Date, Duration, Timestamp};
+use document::DocumentId;
 
 pub type NodeId = usize;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Node {
+    pub document_id: DocumentId,
     pub id: NodeId,
     #[serde(skip)]
     pub indent: u16,
@@ -32,6 +34,10 @@ impl Node {
             headline,
             ..Node::default()
         }
+    }
+
+    pub fn title(&self) -> &str {
+        &self.headline.title
     }
 
     pub fn add_line(&mut self, line: &str) {
@@ -115,6 +121,10 @@ impl Node {
         self.properties.get(name).map(|prop| prop.as_str())
     }
 
+    pub fn has_tag(&self, tag: &str) -> bool {
+        self.headline.tags.iter().any(|t| t == tag)
+    }
+
     pub fn is_habit(&self) -> bool {
         self.property("STYLE") == Some("habit")
     }
@@ -152,6 +162,14 @@ impl Node {
     // TODO: Avoid reparsing the logbook from the drawer each time it is accessed
     pub fn logbook(&self) -> Logbook {
         Logbook::from(self.drawer("LOGBOOK"))
+    }
+
+    pub fn time_spent_today(&self) -> Duration {
+        self.logbook().time_spent_today()
+    }
+
+    pub fn was_clocked_to_today(&self) -> bool {
+        self.logbook().was_clocked_to_today()
     }
 }
 

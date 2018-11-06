@@ -8,6 +8,7 @@ use agenda::{Agenda, AgendaRange};
 use std::io::Error as IoError;
 use std::ops::{Index, IndexMut};
 use std::ffi::OsStr;
+use node::Node;
 
 #[derive(Serialize)]
 pub struct Library {
@@ -27,7 +28,7 @@ impl Library {
     pub fn add(&mut self, mut document: Document) -> (DocumentId, &Document) {
         let id = self.next_id;
         self.next_id += 1;
-        document.id = id;
+        document.set_id(id);
         self.documents.insert(id, document);
         (id, &self.documents[&id])
     }
@@ -72,6 +73,11 @@ impl Library {
 
     pub fn documents(&self) -> impl Iterator<Item=&Document> {
         self.documents.values()
+    }
+
+    pub fn nodes_clocked_to_today(&self) -> impl Iterator<Item = &Node> {
+        self.documents()
+            .flat_map(|document| document.nodes_clocked_to_today())
     }
 }
 
